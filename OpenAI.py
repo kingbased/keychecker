@@ -4,7 +4,7 @@ import requests
 import APIKey
 
 oai_api_url = "https://api.openai.com/v1"
-oai_standard_rate_limit = {"gpt-3.5-turbo": 3500, "gpt-4": 200, "gpt-4-32k": 10}
+oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
 
 
 def get_oai_model(key: APIKey):
@@ -45,7 +45,7 @@ def get_oai_key_attribs(key: APIKey):
             case "invalid_request_error":
                 key.has_quota = True
                 key.rpm = int(response.headers.get("x-ratelimit-limit-requests"))
-                if key.rpm < oai_standard_rate_limit[key.model]:  # think this is how trial keys work
+                if key.rpm < oai_t1_rpm_limits[key.model]:  # only applies for turbo slop keys
                     key.trial = True
     else:
         return
