@@ -2,6 +2,7 @@ from time import sleep
 from Anthropic import check_anthropic, pretty_print_anthropic_keys
 from Logger import Logger
 from OpenAI import get_oai_model, get_oai_key_attribs, get_oai_org, pretty_print_oai_keys
+from AI21 import check_ai21, pretty_print_ai21_keys
 from APIKey import APIKey, Provider
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
@@ -10,7 +11,7 @@ import re
 
 api_keys = set()
 
-print("Enter API keys (OpenAI/Anthropic) one per line. Press Enter on a blank line to start validation")
+print("Enter API keys (OpenAI/Anthropic/AI21) one per line. Press Enter on a blank line to start validation")
 
 inputted_keys = set()
 while True:
@@ -48,8 +49,15 @@ def validate_anthropic(key: APIKey, retry_count):
     api_keys.add(key)
 
 
+def validate_ai21(key: APIKey):
+    if check_ai21(key) is None:
+        return
+    api_keys.add(key)
+
+
 oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
+ai21_regex = re.compile('[A-Za-z0-9]{32}')
 
 executor = ThreadPoolExecutor(max_workers=100)
 
@@ -63,23 +71,29 @@ def validate_keys():
                 continue
             key_obj = APIKey(Provider.ANTHROPIC, key)
             futures.append(executor.submit(validate_anthropic, key_obj, 20))
-        else:
+        elif "sk-" in key:
             match = oai_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.OPENAI, key)
             futures.append(executor.submit(validate_openai, key_obj))
-
+        else:
+            match = ai21_regex.match(key)
+            if not match:
+                continue
+            key_obj = APIKey(Provider.AI21, key)
+            futures.append(executor.submit(validate_ai21, key_obj))
     for _ in as_completed(futures):
         pass
 
     futures.clear()
 
 
-def get_invalid_keys(valid_oai_keys, valid_anthropic_keys):
+def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys):
     valid_oai_keys_set = set([key.api_key for key in valid_oai_keys])
     valid_anthropic_keys_set = set([key.api_key for key in valid_anthropic_keys])
-    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set
+    valid_ai21_keys_set = set([key.api_key for key in valid_ai21_keys])
+    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set
     if len(invalid_keys) < 1:
         return
     print('\nInvalid Keys:')
@@ -91,25 +105,28 @@ def output_keys():
     validate_keys()
     valid_oai_keys = []
     valid_anthropic_keys = []
+    valid_ai21_keys = []
     for key in api_keys:
         if key.provider == Provider.OPENAI:
             valid_oai_keys.append(key)
         elif key.provider == Provider.ANTHROPIC:
             valid_anthropic_keys.append(key)
-
+        elif key.provider == Provider.AI21:
+            valid_ai21_keys.append(key)
     output_filename = "key_snapshots.txt"
     sys.stdout = Logger(output_filename)
     print("#" * 90)
     print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("#" * 90)
     print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
-    get_invalid_keys(valid_oai_keys, valid_anthropic_keys)  # just for completeness’s sake
+    get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys)  # just for completeness’s sake
     print()
     if valid_oai_keys:
         pretty_print_oai_keys(valid_oai_keys)
     if valid_anthropic_keys:
         pretty_print_anthropic_keys(valid_anthropic_keys)
-
+    if valid_ai21_keys:
+        pretty_print_ai21_keys(valid_ai21_keys)
     sys.stdout.file.close()
 
 

@@ -18,7 +18,11 @@ class APIKey:
             self.pozzed = False
             self.rate_limited = False
 
+        elif provider == Provider.AI21:
+            self.trial_elapsed = False
+
 
 class Provider(Enum):
     OPENAI = 1,
     ANTHROPIC = 2
+    AI21 = 3
