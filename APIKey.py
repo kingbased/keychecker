@@ -21,9 +21,15 @@ class APIKey:
         elif provider == Provider.AI21:
             self.trial_elapsed = False
 
+        elif provider == Provider.AWS:
+            self.useless = True
+            self.username = ""
+            self.admin_priv = False
+
 
 class Provider(Enum):
     OPENAI = 1,
     ANTHROPIC = 2
     AI21 = 3
     PALM = 4
+    AWS = 5
