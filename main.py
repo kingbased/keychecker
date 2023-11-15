@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 from datetime import datetime
 import re
+import argparse
 
 api_keys = set()
 
@@ -24,6 +25,12 @@ while True:
         print("Starting validation...")
         break
     inputted_keys.add(current_line.strip().split(" ")[0])
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='slop checker')
+    parser.add_argument('-nooutput', '--nooutput', action='store_true', help='stop writing slop to a file')
+    return parser.parse_args()
 
 
 def validate_openai(key: APIKey):
@@ -133,6 +140,7 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
 
 
 def output_keys():
+    args = parse_args()
     validate_keys()
     valid_oai_keys = []
     valid_anthropic_keys = []
@@ -150,8 +158,11 @@ def output_keys():
             valid_palm_keys.append(key)
         elif key.provider == Provider.AWS:
             valid_aws_keys.append(key)
-    output_filename = "key_snapshots.txt"
-    sys.stdout = Logger(output_filename)
+
+    if not args.nooutput:
+        output_filename = "key_snapshots.txt"
+        sys.stdout = Logger(output_filename)
+
     print("#" * 90)
     print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("#" * 90)
@@ -168,7 +179,10 @@ def output_keys():
         pretty_print_palm_keys(valid_palm_keys)
     if valid_aws_keys:
         pretty_print_aws_keys(valid_aws_keys)
-    sys.stdout.file.close()
+
+    if not args.nooutput:
+        sys.stdout.file.close()
 
 
-output_keys()
+if __name__ == "__main__":
+    output_keys()
