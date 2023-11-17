@@ -111,6 +111,7 @@ def validate_keys():
             match = aws_regex.match(key)
             if not match:
                 continue
+            print("Key passed regex check")
             key_obj = APIKey(Provider.AWS, key)
             futures.append(executor.submit(validate_aws, key_obj))
         else:

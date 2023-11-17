@@ -17,11 +17,12 @@ def check_aws(key: APIKey):
 
         if username is not None:
             key.username = username
-
+        print(f"Username: {username}")
         if policies is None:
             return
 
         for policy in policies:
+            print(f"Key has policy: {policy}")
             if "AdministratorAccess" in policy["PolicyName"]:
                 key.admin_priv = True
                 key.useless = False
@@ -40,7 +41,7 @@ def check_aws(key: APIKey):
         return True
 
     except botocore.exceptions.ClientError as e:
-        # print(f"error occurred: {e}") usually thrown when a key cant list the policies
+        print(f"error occurred: {e}")
         return
 
 
