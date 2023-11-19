@@ -22,9 +22,11 @@ class APIKey:
             self.trial_elapsed = False
 
         elif provider == Provider.AWS:
-            self.useless = True
             self.username = ""
+            self.useless = True
             self.admin_priv = False
+            self.bedrock_enabled = False
+            self.region = ""
 
 
 class Provider(Enum):
