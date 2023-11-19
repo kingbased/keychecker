@@ -62,6 +62,7 @@ def check_aws(key: APIKey):
         can_invoke = check_default_bedrock_status(bedrock_runtime_client)
         if can_invoke is not None:
             key.bedrock_enabled = True
+            key.useless = False
 
         if policies is None and region is None and can_invoke is None:
             return
