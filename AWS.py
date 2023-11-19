@@ -59,7 +59,7 @@ def check_aws(key: APIKey):
         if username is not None:
             key.username = username
 
-        can_invoke = check_default_bedrock_status(bedrock_runtime_client)
+        can_invoke = test_invoke_perms(bedrock_runtime_client)
         if can_invoke is not None:
             key.bedrock_enabled = True
             key.useless = False
@@ -108,7 +108,7 @@ def get_region(session):
             return
 
 
-def check_default_bedrock_status(bedrock_runtime_client):
+def test_invoke_perms(bedrock_runtime_client):
     data = {
         "prompt": "\n\nHuman:\n\nAssistant:",
         "max_tokens_to_sample": -1,
@@ -135,14 +135,16 @@ def pretty_print_aws_keys(keys):
         else:
             needs_setup_keys.append(key)
 
-    print(f"Validated {len(ready_to_go_keys)} AWS keys that are working and already have Bedrock setup.")
-    for key in ready_to_go_keys:
-        print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
-              (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else ""))
+    if ready_to_go_keys:
+        print(f"Validated {len(ready_to_go_keys)} AWS keys that are working and already have Bedrock setup.")
+        for key in ready_to_go_keys:
+            print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
+                  (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else ""))
 
-    print(f"\nValidated {len(needs_setup_keys)} AWS keys that failed to invoke Claude and need further permissions setup. Keys without a region displayed do not have the models setup and need to do so")
-    for key in needs_setup_keys:
-        print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
-              (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else ""))
+    if needs_setup_keys:
+        print(f"\nValidated {len(needs_setup_keys)} AWS keys that failed to invoke Claude and need further permissions setup. Keys without a region displayed do not have the models setup and need to do so")
+        for key in needs_setup_keys:
+            print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
+                  (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else ""))
 
     print(f'\n--- Total Valid AWS Keys: {len(keys)} ({admin_count} with admin priv) ---\n')
