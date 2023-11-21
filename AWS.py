@@ -90,7 +90,6 @@ def check_aws(key: APIKey):
         return True
 
     except botocore.exceptions.ClientError as e:
-        print({e})
         return
 
 
@@ -104,7 +103,6 @@ def get_region(session):
             if all(model_id in models for model_id in cloudies):
                 return region
         except botocore.exceptions.ClientError as e:
-            print(e)
             return
 
 
@@ -118,7 +116,6 @@ def test_invoke_perms(bedrock_runtime_client):
     except bedrock_runtime_client.exceptions.ValidationException:
         return True
     except bedrock_runtime_client.exceptions.AccessDeniedException as e:
-        print({e})
         return
 
 
