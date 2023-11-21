@@ -115,6 +115,7 @@ def test_invoke_perms(bedrock_runtime_client):
     }
     try:
         bedrock_runtime_client.invoke_model(body=json.dumps(data), modelId="anthropic.claude-instant-v1")
+    except bedrock_runtime_client.exceptions.ValidationException:
         return True
     except bedrock_runtime_client.exceptions.AccessDeniedException as e:
         print({e})
