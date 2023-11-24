@@ -31,7 +31,6 @@ class APIKey:
         elif provider == Provider.AZURE:
             self.endpoint = ""
             self.deployment = ""
-            self.has_gpt4 = False
             self.unfiltered = False
 
 
