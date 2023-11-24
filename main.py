@@ -24,12 +24,13 @@ while True:
     if not current_line:
         print("Starting validation...")
         break
-    inputted_keys.add(current_line.strip().split(" ")[0])
+    inputted_keys.add(current_line.strip().split()[0].split(",")[0])
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='slop checker')
     parser.add_argument('-nooutput', '--nooutput', action='store_true', help='stop writing slop to a file')
+    parser.add_argument('-proxyoutput', '--proxyoutput', action='store_true', help='proxy format output for easy copying')
     return parser.parse_args()
 
 
@@ -141,6 +142,7 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
 
 def output_keys():
     args = parse_args()
+    should_write = not args.nooutput and not args.proxyoutput
     validate_keys()
     valid_oai_keys = []
     valid_anthropic_keys = []
@@ -159,28 +161,35 @@ def output_keys():
         elif key.provider == Provider.AWS:
             valid_aws_keys.append(key)
 
-    if not args.nooutput:
+    if should_write:
         output_filename = "key_snapshots.txt"
         sys.stdout = Logger(output_filename)
 
-    print("#" * 90)
-    print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("#" * 90)
-    print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
-    get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_palm_keys, valid_aws_keys)
-    print()
-    if valid_oai_keys:
-        pretty_print_oai_keys(valid_oai_keys)
-    if valid_anthropic_keys:
-        pretty_print_anthropic_keys(valid_anthropic_keys)
-    if valid_ai21_keys:
-        pretty_print_ai21_keys(valid_ai21_keys)
-    if valid_palm_keys:
-        pretty_print_palm_keys(valid_palm_keys)
-    if valid_aws_keys:
-        pretty_print_aws_keys(valid_aws_keys)
+    if not args.proxyoutput:
+        print("#" * 90)
+        print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("#" * 90)
+        print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
+        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_palm_keys, valid_aws_keys)
+        print()
+        if valid_oai_keys:
+            pretty_print_oai_keys(valid_oai_keys)
+        if valid_anthropic_keys:
+            pretty_print_anthropic_keys(valid_anthropic_keys)
+        if valid_ai21_keys:
+            pretty_print_ai21_keys(valid_ai21_keys)
+        if valid_palm_keys:
+            pretty_print_palm_keys(valid_palm_keys)
+        if valid_aws_keys:
+            pretty_print_aws_keys(valid_aws_keys)
+    else:
+        # ai21 keys aren't supported in proxies so no point.
+        print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
+        print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
+        print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{key.region}" for key in valid_aws_keys))
+        print("GOOGLE_PALM_KEY=" + ','.join(key.api_key for key in valid_palm_keys))
 
-    if not args.nooutput:
+    if should_write:
         sys.stdout.file.close()
 
 
