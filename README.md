@@ -6,4 +6,5 @@ currently supports openai, anthropic, ai21, palm and AWS keys. it also lists var
 may add support for azure keys in the future
 
 run with -proxyoutput to output keys in a form that can be copy pasted straight into a proxy
+
 run with -nooutput (or proxyoutput) to stop outputting keys to a file

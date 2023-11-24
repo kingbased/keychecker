@@ -28,6 +28,12 @@ class APIKey:
             self.bedrock_enabled = False
             self.region = ""
 
+        elif provider == Provider.AZURE:
+            self.endpoint = ""
+            self.deployment = ""
+            self.has_gpt4 = False
+            self.unfiltered = False
+
 
 class Provider(Enum):
     OPENAI = 1,
@@ -35,3 +41,4 @@ class Provider(Enum):
     AI21 = 3
     PALM = 4
     AWS = 5
+    AZURE = 6

@@ -5,6 +5,7 @@ from OpenAI import get_oai_model, get_oai_key_attribs, get_oai_org, pretty_print
 from AI21 import check_ai21, pretty_print_ai21_keys
 from Palm import check_palm, pretty_print_palm_keys
 from AWS import check_aws, pretty_print_aws_keys
+from Azure import check_azure, pretty_print_azure_keys
 
 from APIKey import APIKey, Provider
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -79,11 +80,18 @@ def validate_aws(key: APIKey):
     api_keys.add(key)
 
 
+def validate_azure(key: APIKey):
+    if check_azure(key) is None:
+        return
+    api_keys.add(key)
+
+
 oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 ai21_regex = re.compile('[A-Za-z0-9]{32}')
 palm_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
+azure_regex = re.compile(r'^[A-Za-z0-9]{32}$')
 executor = ThreadPoolExecutor(max_workers=100)
 
 
@@ -114,6 +122,12 @@ def validate_keys():
                 continue
             key_obj = APIKey(Provider.AWS, key)
             futures.append(executor.submit(validate_aws, key_obj))
+        elif "AZURE" in key:
+            match = azure_regex.match(key)
+            if not match:
+                continue
+            key_obj = APIKey(Provider.AZURE, key)
+            futures.append(executor.submit(validate_azure, key_obj))
         else:
             match = ai21_regex.match(key)
             if not match:
@@ -126,13 +140,14 @@ def validate_keys():
     futures.clear()
 
 
-def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_palm_keys, valid_aws_keys):
+def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_palm_keys, valid_aws_keys, valid_azure_keys):
     valid_oai_keys_set = set([key.api_key for key in valid_oai_keys])
     valid_anthropic_keys_set = set([key.api_key for key in valid_anthropic_keys])
     valid_ai21_keys_set = set([key.api_key for key in valid_ai21_keys])
     valid_palm_keys_set = set([key.api_key for key in valid_palm_keys])
     valid_aws_keys_set = set([key.api_key for key in valid_aws_keys])
-    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_palm_keys_set - valid_aws_keys_set
+    valid_azure_keys_set = set([key.api_key for key in valid_azure_keys])
+    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_palm_keys_set - valid_aws_keys_set - valid_azure_keys_set
     if len(invalid_keys) < 1:
         return
     print('\nInvalid Keys:')
@@ -149,6 +164,7 @@ def output_keys():
     valid_ai21_keys = []
     valid_palm_keys = []
     valid_aws_keys = []
+    valid_azure_keys = []
     for key in api_keys:
         if key.provider == Provider.OPENAI:
             valid_oai_keys.append(key)
@@ -160,7 +176,8 @@ def output_keys():
             valid_palm_keys.append(key)
         elif key.provider == Provider.AWS:
             valid_aws_keys.append(key)
-
+        elif key.provider == Provider.AZURE:
+            valid_azure_keys.append(key)
     if should_write:
         output_filename = "key_snapshots.txt"
         sys.stdout = Logger(output_filename)
@@ -170,7 +187,7 @@ def output_keys():
         print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("#" * 90)
         print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
-        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_palm_keys, valid_aws_keys)
+        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_palm_keys, valid_aws_keys, valid_azure_keys)
         print()
         if valid_oai_keys:
             pretty_print_oai_keys(valid_oai_keys)
@@ -182,8 +199,10 @@ def output_keys():
             pretty_print_palm_keys(valid_palm_keys)
         if valid_aws_keys:
             pretty_print_aws_keys(valid_aws_keys)
+        if valid_azure_keys:
+            pretty_print_azure_keys(valid_azure_keys)
     else:
-        # ai21 keys aren't supported in proxies so no point.
+        # ai21 and azure keys aren't supported in proxies so no point outputting them.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
         print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
         print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{key.region}" for key in valid_aws_keys))
