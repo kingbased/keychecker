@@ -87,6 +87,8 @@ def check_aws(key: APIKey):
 
         if key.useless:
             return
+        else:
+            check_logging(session, key)
         return True
 
     except botocore.exceptions.ClientError as e:
@@ -119,6 +121,16 @@ def test_invoke_perms(bedrock_runtime_client):
         return
 
 
+def check_logging(session, key: APIKey):
+    try:
+        bedrock_client = session.client("bedrock", region_name=key.region)
+        logging_config = bedrock_client.get_model_invocation_logging_configuration()
+        key.logged = logging_config['loggingConfig']['textDataDeliveryEnabled']
+    except botocore.exceptions.ClientError as e:
+        key.logged = True
+        return
+
+
 def pretty_print_aws_keys(keys):
     print('-' * 90)
     admin_count = 0
@@ -137,7 +149,8 @@ def pretty_print_aws_keys(keys):
         print(f"Validated {len(ready_to_go_keys)} AWS keys that are working and already have Bedrock setup.")
         for key in ready_to_go_keys:
             print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
-                  (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else ""))
+                  (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else "") +
+                  (' | LOGGED KEY' if key.logged is True else ""))
 
     if needs_setup_keys:
         print(f"\nValidated {len(needs_setup_keys)} AWS keys that failed to invoke Claude and need further permissions setup. Keys without a region displayed do not have the models setup and need to do so")

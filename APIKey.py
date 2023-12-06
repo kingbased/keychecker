@@ -27,6 +27,7 @@ class APIKey:
             self.admin_priv = False
             self.bedrock_enabled = False
             self.region = ""
+            self.logged = False
 
         elif provider == Provider.AZURE:
             self.endpoint = ""
