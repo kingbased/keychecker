@@ -1,7 +1,7 @@
 # keychecker
 a bulk key checker for various AI services
 
-Currently supports and checks for the following various attributes a key might have:
+Currently supports and validates keys for the services below, and checks for the listed attributes a key might have:
 
 - OpenAI - (Best model, key in quota, RPM, list of organizations if applicable, trial key status)
 - Anthropic - (Pozzed check)
