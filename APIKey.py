@@ -30,7 +30,9 @@ class APIKey:
 
         elif provider == Provider.AZURE:
             self.endpoint = ""
-            self.deployment = ""
+            self.best_deployment = ""
+            self.model = ""
+            self.deployments = []
             self.unfiltered = False
 
 

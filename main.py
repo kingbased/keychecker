@@ -16,8 +16,8 @@ import argparse
 
 api_keys = set()
 
-print("Enter API keys (OpenAI/Anthropic/AI21/PaLM/AWS) one per line. Press Enter on a blank line to start validation")
-print("Expected format for AWS keys is accesskey:secret")
+print("Enter API keys (OpenAI/Anthropic/AI21/PaLM/AWS/Azure) one per line. Press Enter on a blank line to start validation")
+print("Expected format for AWS keys is accesskey:secret, for Azure keys it's resourcegroup:apikey")
 
 inputted_keys = set()
 while True:
@@ -91,7 +91,8 @@ anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 ai21_regex = re.compile('[A-Za-z0-9]{32}')
 palm_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
-azure_regex = re.compile(r'^[A-Za-z0-9]{32}$')
+azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
+
 executor = ThreadPoolExecutor(max_workers=100)
 
 
@@ -122,7 +123,7 @@ def validate_keys():
                 continue
             key_obj = APIKey(Provider.AWS, key)
             futures.append(executor.submit(validate_aws, key_obj))
-        elif "AZURE" in key:
+        elif ":" in key and "AKIA" not in key:
             match = azure_regex.match(key)
             if not match:
                 continue
@@ -202,12 +203,12 @@ def output_keys():
         if valid_azure_keys:
             pretty_print_azure_keys(valid_azure_keys)
     else:
-        # ai21 and azure keys aren't supported in proxies so no point outputting them.
+        # ai21 keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
         print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
         print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{key.region}" for key in valid_aws_keys))
         print("GOOGLE_PALM_KEY=" + ','.join(key.api_key for key in valid_palm_keys))
-
+        print("AZURE_CREDENTIALS=" + ','.join(f"{key.api_key.split(':')[0]}:{key.best_deployment}:{key.api_key.split(':')[1]}" for key in valid_azure_keys if key.unfiltered))
     if should_write:
         sys.stdout.file.close()
 
