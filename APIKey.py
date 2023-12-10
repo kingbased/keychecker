@@ -36,6 +36,10 @@ class APIKey:
             self.deployments = []
             self.unfiltered = False
 
+        elif provider == Provider.VERTEXAI:
+            self.project_id = ""
+            pass
+
 
 class Provider(Enum):
     OPENAI = 1,
@@ -44,3 +48,4 @@ class Provider(Enum):
     PALM = 4
     AWS = 5
     AZURE = 6
+    VERTEXAI = 7
