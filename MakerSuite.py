@@ -4,7 +4,6 @@ import APIKey
 
 def check_makersuite(key: APIKey):
     response = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key.api_key}")
-    print(response.text)
     if response.status_code != 200:
         return
     return True
