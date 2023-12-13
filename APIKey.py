@@ -45,7 +45,7 @@ class Provider(Enum):
     OPENAI = 1,
     ANTHROPIC = 2
     AI21 = 3
-    PALM = 4
+    MAKERSUITE = 4
     AWS = 5
     AZURE = 6
     VERTEXAI = 7
