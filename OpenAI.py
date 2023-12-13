@@ -30,7 +30,7 @@ def get_oai_key_attribs(key: APIKey):
     response = requests.post(f'{oai_api_url}/chat/completions',
                              headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
                              json=chat_object)
-    if response.status_code == 400 or 429:
+    if response.status_code in [400, 429]:
         data = json.loads(response.text)
         message = data["error"]["type"]
         if message is None:
