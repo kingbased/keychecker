@@ -10,7 +10,7 @@ Currently supports and validates keys for the services below, and checks for the
 - AWS - (Admin status, auto-fetch the region, logging status, username, bedrock status)
 - Azure - (Auto-fetch all deployments, auto-fetch best deployment/model, filter status)
 - Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly. Good luck scraping for those.)
-
+- MistralAI - (Subscription status)
 # Usage:
 `pip install -r requirements.txt`
 

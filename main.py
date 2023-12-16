@@ -7,6 +7,7 @@ from MakerSuite import check_makersuite, pretty_print_makersuite_keys
 from AWS import check_aws, pretty_print_aws_keys
 from Azure import check_azure, pretty_print_azure_keys
 from VertexAI import check_vertexai, pretty_print_vertexai_keys
+from Mistral import check_mistral, pretty_print_mistral_keys
 
 from APIKey import APIKey, Provider
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,7 +19,7 @@ import os.path
 
 api_keys = set()
 
-print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure) one per line. Press Enter on a blank line to start validation')
+print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral) one per line. Press Enter on a blank line to start validation')
 print('Expected format for AWS keys is accesskey:secret, for Azure keys it\'s resourcegroup:apikey. For Vertex AI keys the absolute path to the secrets key file is expected in quotes. "/path/to/secrets.json"')
 
 inputted_keys = set()
@@ -64,9 +65,11 @@ def validate_anthropic(key: APIKey, retry_count):
     api_keys.add(key)
 
 
-def validate_ai21(key: APIKey):
+def validate_ai21_and_mistral(key: APIKey):
     if check_ai21(key) is None:
-        return
+        key.provider = Provider.MISTRAL
+        if check_mistral(key) is None:
+            return
     api_keys.add(key)
 
 
@@ -96,7 +99,7 @@ def validate_vertexai(key: APIKey):
 
 oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
-ai21_regex = re.compile('[A-Za-z0-9]{32}')
+ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
 makersuite_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
 azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
@@ -145,18 +148,18 @@ def validate_keys():
             key_obj = APIKey(Provider.AZURE, key)
             futures.append(executor.submit(validate_azure, key_obj))
         else:
-            match = ai21_regex.match(key)
+            match = ai21_and_mistral_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.AI21, key)
-            futures.append(executor.submit(validate_ai21, key_obj))
+            futures.append(executor.submit(validate_ai21_and_mistral, key_obj))
     for _ in as_completed(futures):
         pass
 
     futures.clear()
 
 
-def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys):
+def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys):
     valid_oai_keys_set = set([key.api_key for key in valid_oai_keys])
     valid_anthropic_keys_set = set([key.api_key for key in valid_anthropic_keys])
     valid_ai21_keys_set = set([key.api_key for key in valid_ai21_keys])
@@ -164,8 +167,9 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
     valid_aws_keys_set = set([key.api_key for key in valid_aws_keys])
     valid_azure_keys_set = set([key.api_key for key in valid_azure_keys])
     valid_vertexai_keys_set = set([key.api_key for key in valid_vertexai_keys])
+    valid_mistral_keys_set = set([key.api_key for key in valid_mistral_keys])
 
-    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set
+    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set - valid_mistral_keys_set
     if len(invalid_keys) < 1:
         return
     print('\nInvalid Keys:')
@@ -184,6 +188,7 @@ def output_keys():
     valid_aws_keys = []
     valid_azure_keys = []
     valid_vertexai_keys = []
+    valid_mistral_keys = []
 
     for key in api_keys:
         if key.provider == Provider.OPENAI:
@@ -200,6 +205,8 @@ def output_keys():
             valid_azure_keys.append(key)
         elif key.provider == Provider.VERTEXAI:
             valid_vertexai_keys.append(key)
+        elif key.provider == Provider.MISTRAL:
+            valid_mistral_keys.append(key)
     if should_write:
         output_filename = "key_snapshots.txt"
         sys.stdout = Logger(output_filename)
@@ -209,7 +216,7 @@ def output_keys():
         print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("#" * 90)
         print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
-        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys)
+        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys)
         print()
         if valid_oai_keys:
             pretty_print_oai_keys(valid_oai_keys)
@@ -225,6 +232,8 @@ def output_keys():
             pretty_print_azure_keys(valid_azure_keys)
         if valid_vertexai_keys:
             pretty_print_vertexai_keys(valid_vertexai_keys)
+        if valid_mistral_keys:
+            pretty_print_mistral_keys(valid_mistral_keys)
     else:
         # ai21 and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))

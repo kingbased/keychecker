@@ -38,7 +38,9 @@ class APIKey:
 
         elif provider == Provider.VERTEXAI:
             self.project_id = ""
-            pass
+
+        elif provider == Provider.MISTRAL:
+            self.subbed = False
 
 
 class Provider(Enum):
@@ -49,3 +51,4 @@ class Provider(Enum):
     AWS = 5
     AZURE = 6
     VERTEXAI = 7
+    MISTRAL = 8
