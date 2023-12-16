@@ -14,7 +14,7 @@ def check_sub_status(key: APIKey):
     data = {
         'model': 'mistral-tiny',
         'messages': [{'role': 'user', 'content': ''}],
-        'max_tokens': 0
+        'max_tokens': 1
     }
     response = requests.post(f'https://api.mistral.ai/v1/chat/completions', headers={'Authorization': f'Bearer {key.api_key}'}, json=data)
     if response.status_code == 401 or response.status_code == 429:
