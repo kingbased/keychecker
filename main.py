@@ -19,16 +19,22 @@ import os.path
 
 api_keys = set()
 
-print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral) one per line. Press Enter on a blank line to start validation')
+print('Reading API keys from keys.txt (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral)')
 print('Expected format for AWS keys is accesskey:secret, for Azure keys it\'s resourcegroup:apikey. For Vertex AI keys the absolute path to the secrets key file is expected in quotes. "/path/to/secrets.json"')
 
 inputted_keys = set()
-while True:
-    current_line = input()
-    if not current_line:
-        print("Starting validation...")
-        break
-    inputted_keys.add(current_line.strip().split()[0].split(",")[0])
+
+try:
+    with open('keys.txt', 'r') as file:
+        for line in file:
+            # here we assume each line contains only one key
+            clean_line = line.strip().split()[0].split(",")[0]
+            if clean_line:  # make sure the line is not empty
+                inputted_keys.add(clean_line)
+
+    print("API keys have been read from file. Starting validation...")
+except FileNotFoundError:
+    print("keys.txt not found. Please make sure the file exists.")
 
 
 def parse_args():
