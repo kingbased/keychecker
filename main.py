@@ -27,15 +27,17 @@ inputted_keys = set()
 try:
     with open('keys.txt', 'r') as file:
         for line in file:
-            # here we assume each line contains only one key
-            clean_line = line.strip().split()[0].split(",")[0]
-            if clean_line:  # make sure the line is not empty
-                inputted_keys.add(clean_line)
+            line_parts = line.strip().split()  # split on whitespace
+            if line_parts:  # ensure that there is at least one element
+                key_part = line_parts[0].split(",")  # split on comma
+                if key_part:  # ensure the split result is not empty
+                    clean_key = key_part[0]
+                    if clean_key:  # make sure clean_key is not empty
+                        inputted_keys.add(clean_key)
 
     print("API keys have been read from file. Starting validation...")
 except FileNotFoundError:
     print("keys.txt not found. Please make sure the file exists.")
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='slop checker')
