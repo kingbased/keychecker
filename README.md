@@ -26,3 +26,7 @@ Outputs keys in a format that can be easily copy pasted into khanon's proxy inst
 `-nooutput`
 
 Stops outputting and saving keys to the snapshot file (proxyoutput will also do this)
+
+`-file`
+
+Reads keys from a file instead of stdin, place either the absolute or relative path to the file in quotes after the flag.

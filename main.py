@@ -1,6 +1,6 @@
 from time import sleep
 from Anthropic import check_anthropic, pretty_print_anthropic_keys
-from Logger import Logger
+from IO import IO
 from OpenAI import get_oai_model, get_oai_key_attribs, get_oai_org, pretty_print_oai_keys
 from AI21 import check_ai21, pretty_print_ai21_keys
 from MakerSuite import check_makersuite, pretty_print_makersuite_keys
@@ -19,23 +19,31 @@ import os.path
 
 api_keys = set()
 
-print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral) one per line. Press Enter on a blank line to start validation')
-print('Expected format for AWS keys is accesskey:secret, for Azure keys it\'s resourcegroup:apikey. For Vertex AI keys the absolute path to the secrets key file is expected in quotes. "/path/to/secrets.json"')
-
-inputted_keys = set()
-while True:
-    current_line = input()
-    if not current_line:
-        print("Starting validation...")
-        break
-    inputted_keys.add(current_line.strip().split()[0].split(",")[0])
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='slop checker')
     parser.add_argument('-nooutput', '--nooutput', action='store_true', help='stop writing slop to a file')
     parser.add_argument('-proxyoutput', '--proxyoutput', action='store_true', help='proxy format output for easy copying')
+    parser.add_argument('-file', '--file', action='store', dest='file', help='read slop from a provided filename')
     return parser.parse_args()
+
+
+args = parse_args()
+inputted_keys = set()
+
+if args.file:
+    inputted_keys = IO.read_keys_from_file(args.file)
+    if inputted_keys is None:
+        sys.exit(1)
+else:
+    print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral) one per line. Press Enter on a blank line to start validation')
+    print('Expected format for AWS keys is accesskey:secret, for Azure keys it\'s resourcegroup:apikey. For Vertex AI keys the absolute path to the secrets key file is expected in quotes. "/path/to/secrets.json"')
+    while True:
+        current_line = input()
+        if not current_line:
+            print("Starting validation...")
+            break
+        inputted_keys.add(current_line.strip().split()[0].split(",")[0])
 
 
 def validate_openai(key: APIKey):
@@ -178,7 +186,6 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
 
 
 def output_keys():
-    args = parse_args()
     should_write = not args.nooutput and not args.proxyoutput
     validate_keys()
     valid_oai_keys = []
@@ -209,7 +216,7 @@ def output_keys():
             valid_mistral_keys.append(key)
     if should_write:
         output_filename = "key_snapshots.txt"
-        sys.stdout = Logger(output_filename)
+        sys.stdout = IO(output_filename)
 
     if not args.proxyoutput:
         print("#" * 90)
@@ -235,7 +242,7 @@ def output_keys():
         if valid_mistral_keys:
             pretty_print_mistral_keys(valid_mistral_keys)
     else:
-        # ai21 and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
+        # ai21, mistral and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
         print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
         print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{key.region}" for key in valid_aws_keys))
