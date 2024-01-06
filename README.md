@@ -3,7 +3,7 @@ a bulk key checker for various AI services
 
 Currently supports and validates keys for the services below, and checks for the listed attributes a key might have:
 
-- OpenAI - (Best model, key in quota, RPM, list of organizations if applicable, trial key status)
+- OpenAI - (Best model, key in quota, RPM (catches increase requests), tier, list of organizations if applicable, trial key status)
 - Anthropic - (Pozzed check)
 - AI21 - (Trial check)
 - Google MakerSuite (Gemini)
