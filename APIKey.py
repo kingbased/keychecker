@@ -13,6 +13,7 @@ class APIKey:
             self.default_org = ""
             self.organizations = []
             self.rpm = 0
+            self.tier = ""
 
         elif provider == Provider.ANTHROPIC:
             self.pozzed = False
