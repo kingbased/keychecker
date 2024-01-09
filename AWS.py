@@ -59,9 +59,7 @@ def check_aws(key: APIKey):
             username = sts_client.get_caller_identity()['Arn'].split('/')[1]
             if username is not None:
                 key.username = username
-        except botocore.exceptions.ClientError as e:
-            print("Make an issue on github if this happens on a key you know is working and i will fix it")
-            print(e)
+        except botocore.exceptions.ClientError:
             return
 
         policies = None
@@ -98,6 +96,8 @@ def check_aws(key: APIKey):
 
         if not key.useless:
             check_logging(session, key)
+        elif key.useless and policies is not None:
+            key.useless_reasons.append('Key policies lack Admin or User Creation perms')
         return True
 
     except botocore.exceptions.ClientError as e:
@@ -136,9 +136,13 @@ def check_logging(session, key: APIKey):
     try:
         bedrock_client = session.client("bedrock", region_name=key.region)
         logging_config = bedrock_client.get_model_invocation_logging_configuration()
-        key.logged = logging_config['loggingConfig']['textDataDeliveryEnabled']
+
+        if 'loggingConfig' in logging_config and 'textDataDeliveryEnabled' in logging_config['loggingConfig']:
+            key.logged = logging_config['loggingConfig']['textDataDeliveryEnabled']
+        else:
+            key.logged = False
+
     except botocore.exceptions.ClientError:
-        key.logged = True
         return
 
 
