@@ -59,7 +59,9 @@ def check_aws(key: APIKey):
             username = sts_client.get_caller_identity()['Arn'].split('/')[1]
             if username is not None:
                 key.username = username
-        except botocore.exceptions.ClientError:
+        except botocore.exceptions.ClientError as e:
+            print("Make an issue on github if this happens on a key you know is working and i will fix it")
+            print(e)
             return
 
         policies = None
