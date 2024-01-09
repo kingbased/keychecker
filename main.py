@@ -254,4 +254,8 @@ def output_keys():
 
 
 if __name__ == "__main__":
+    start_time = datetime.now()
     output_keys()
+    elapsed_time = datetime.now() - start_time
+    minutes, seconds = divmod(elapsed_time.total_seconds(), 60)
+    print(f"Finished checking {len(inputted_keys)} keys in {f'{int(minutes)}m ' if minutes else ''}{seconds:.2f}s")
