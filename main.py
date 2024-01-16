@@ -251,6 +251,7 @@ def output_keys():
         print("MISTRAL_AI_KEY=" + ','.join(key.api_key for key in valid_mistral_keys))
     if should_write:
         sys.stdout.file.close()
+        sys.stdout = sys.__stdout__
 
 
 if __name__ == "__main__":
