@@ -14,9 +14,10 @@ def check_azure(key: APIKey):
     models_list = sorted(deployments, key=sort_deployments)
     key.best_deployment = models_list[0]['id']
     key.model = models_list[0]['model']
-    if test_deployment(key, api_key, key.best_deployment) is None:
+    filter_status = test_deployment(key, api_key, key.best_deployment)
+    if filter_status is None:
         return
-    elif test_deployment(key, api_key, key.best_deployment):
+    elif filter_status:
         key.unfiltered = True
 
     # don't think anyone cares about davinci or embedding model deployments so it should be fine to just ignore them, not even sure proxies support them
