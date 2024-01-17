@@ -1,5 +1,5 @@
 import json
-import requests
+import aiohttp
 
 import APIKey
 
@@ -7,83 +7,86 @@ oai_api_url = "https://api.openai.com/v1"
 oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
 oai_tiers = {3: 'Tier1', 5: 'Tier2', 7: 'Tier3', 10: 'Tier4', 20: 'Tier5'}
 
-def get_oai_model(key: APIKey):
-    response = requests.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'})
-    top_model = "gpt-3.5-turbo"
-    if response.status_code != 200:
-        return
-    else:
-        data = json.loads(response.text)
-        models = data["data"]
-        for model in models:
-            if model["id"] == "gpt-4-32k":
-                top_model = model["id"]
-                break
-            elif model["id"] == "gpt-4":
-                top_model = model["id"]
-    key.model = top_model
-    return True
+async def get_oai_model(key: APIKey):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+            if response.status != 200:
+                return
+            else:
+                data = await response.json()
+                models = data["data"]
+                top_model = "gpt-3.5-turbo"
+                for model in models:
+                    if model["id"] == "gpt-4-32k":
+                        top_model = model["id"]
+                        break
+                    elif model["id"] == "gpt-4":
+                        top_model = model["id"]
+                key.model = top_model
+                return True
 
 
-def get_oai_key_attribs(key: APIKey):
+async def get_oai_key_attribs(key: APIKey):
     chat_object = {"model": f'{key.model}', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
-    response = requests.post(f'{oai_api_url}/chat/completions',
-                             headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                             json=chat_object)
-    if response.status_code in [400, 429]:
-        data = json.loads(response.text)
-        message = data["error"]["type"]
-        if message is None:
-            return
-        match message:
-            case "access_terminated":
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f'{oai_api_url}/chat/completions',
+                                headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
+                                json=chat_object) as response:
+            if response.status in [400, 429]:
+                data = await response.json()
+                message = data["error"]["type"]
+                if message is None:
+                    return
+                match message:
+                    case "access_terminated":
+                        return
+                    case "billing_not_active":
+                        return
+                    case "insufficient_quota":
+                        key.has_quota = False
+                    case "invalid_request_error":
+                        key.has_quota = True
+                        key.rpm = int(response.headers.get("x-ratelimit-limit-requests"))
+                        if key.rpm < oai_t1_rpm_limits[key.model]:  # oddly seen some gpt4 trial keys
+                            key.trial = True
+                        key.tier = await get_oai_key_tier(key, session)
+            else:
                 return
-            case "billing_not_active":
-                return
-            case "insufficient_quota":
-                key.has_quota = False
-            case "invalid_request_error":
-                key.has_quota = True
-                key.rpm = int(response.headers.get("x-ratelimit-limit-requests"))
-                if key.rpm < oai_t1_rpm_limits[key.model]:  # oddly seen some gpt4 trial keys
-                    key.trial = True
-                key.tier = get_oai_key_tier(key)
-    else:
-        return
-    return True
+            return True
 
 
 # this will weed out fake t4/t5 keys reporting a 10k rpm limit, those keys would have requested to have their rpm increased
-def get_oai_key_tier(key: APIKey):
+async def get_oai_key_tier(key: APIKey, session):
     if key.trial:
         return 'Free'
     tts_object = {"model": "tts-1-hd", "input": "", "voice": "alloy"}
-    response = requests.post(f'{oai_api_url}/audio/speech',
-                             headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                             json=tts_object)
-    if response.status_code in [400, 429]:
-        try:
-            return oai_tiers[int(response.headers.get("x-ratelimit-limit-requests"))]
-        except KeyError:
+    async with session.post(f'{oai_api_url}/audio/speech',
+                            headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
+                            json=tts_object) as response:
+        if response.status in [400, 429]:
+            try:
+                return oai_tiers[int(response.headers.get("x-ratelimit-limit-requests"))]
+            except KeyError:
+                return
+        else:
             return
-    else:
-        return
 
 
-def get_oai_org(key: APIKey):
-    response = requests.get(f'{oai_api_url}/organizations', headers={'Authorization': f'Bearer {key.api_key}'})
-    if response.status_code != 200:
-        return
+async def get_oai_org(key: APIKey):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f'{oai_api_url}/organizations', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+            if response.status != 200:
+                return
 
-    data = json.loads(response.text)
-    orgs = data["data"]
+            data = await response.json()
+            orgs = data["data"]
 
-    for org in orgs:
-        if not org["personal"]:
-            if org["is_default"]:
-                key.default_org = org["name"]
-            key.organizations.append(org["name"])
-    return True
+            for org in orgs:
+                if not org["personal"]:
+                    if org["is_default"]:
+                        key.default_org = org["name"]
+                    key.organizations.append(org["name"])
+            return True
 
 
 def check_manual_increase(key: APIKey):

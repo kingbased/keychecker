@@ -1,25 +1,26 @@
+import aiohttp
 import APIKey
-import requests
 
 
-def check_mistral(key: APIKey):
-    response = requests.get(f'https://api.mistral.ai/v1/models', headers={'Authorization': f'Bearer {key.api_key}'})
-    if response.status_code != 200:
-        return
-    key.subbed = check_sub_status(key)
-    return True
+async def check_mistral(key: APIKey):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f'https://api.mistral.ai/v1/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+            if response.status != 200:
+                return
+            key.subbed = await check_sub_status(key, session)
+            return True
 
 
-def check_sub_status(key: APIKey):
+async def check_sub_status(key: APIKey, session):
     data = {
         'model': 'mistral-tiny',
         'messages': [{'role': 'user', 'content': ''}],
         'max_tokens': 1
     }
-    response = requests.post(f'https://api.mistral.ai/v1/chat/completions', headers={'Authorization': f'Bearer {key.api_key}'}, json=data)
-    if response.status_code == 401 or response.status_code == 429:
-        return False
-    return True
+    async with session.post(f'https://api.mistral.ai/v1/chat/completions', headers={'Authorization': f'Bearer {key.api_key}'}, json=data) as response:
+        if response.status == 401 or response.status == 429:
+            return False
+        return True
 
 
 def pretty_print_mistral_keys(keys):
