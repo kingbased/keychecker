@@ -11,6 +11,8 @@ Currently supports and validates keys for the services below, and checks for the
 - Azure - (Auto-fetch all deployments, auto-fetch best deployment/model, filter status)
 - Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly. Good luck scraping for those.)
 - MistralAI - (Subscription status)
+
+An asynchronus version of the checker can be found in the branch 'async'. I don't want to merge into main just yet because of the issues OAI had recently when speedchecking lots of keys. It is currently working though and can process around 1.5k keys every ~2 seconds.
 # Usage:
 `pip install -r requirements.txt`
 
