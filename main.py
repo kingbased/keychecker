@@ -119,13 +119,13 @@ makersuite_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
 azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
 # vertex_regex = re.compile(r'^(.+):(ya29.[A-Za-z0-9\-_]{469})$') regex for the oauth tokens, useless since they expire hourly
+executor = ThreadPoolExecutor(max_workers=100)
+concurrent_connections = asyncio.Semaphore(1500)
 
 
 async def validate_keys():
     tasks = []
     loop = asyncio.get_event_loop()
-    executor = ThreadPoolExecutor(max_workers=100)
-    concurrent_connections = asyncio.Semaphore(1500)
     for key in inputted_keys:
         if '"' in key[:1]:
             key = key.strip('"')
