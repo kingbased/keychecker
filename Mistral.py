@@ -1,14 +1,12 @@
-import aiohttp
 import APIKey
 
 
-async def check_mistral(key: APIKey):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f'https://api.mistral.ai/v1/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
-            if response.status != 200:
-                return
-            key.subbed = await check_sub_status(key, session)
-            return True
+async def check_mistral(key: APIKey, session):
+    async with session.get(f'https://api.mistral.ai/v1/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+        if response.status != 200:
+            return
+        key.subbed = await check_sub_status(key, session)
+        return True
 
 
 async def check_sub_status(key: APIKey, session):

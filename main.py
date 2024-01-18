@@ -17,6 +17,7 @@ import re
 import argparse
 import os.path
 import asyncio
+import aiohttp
 
 api_keys = set()
 
@@ -47,45 +48,49 @@ else:
         inputted_keys.add(current_line.strip().split()[0].split(",")[0])
 
 
-async def validate_openai(key: APIKey):
-    if await get_oai_model(key) is None:
-        return
-    if await get_oai_key_attribs(key) is None:
-        return
-    if await get_oai_org(key) is None:
-        return
-    api_keys.add(key)
-
-
-async def validate_anthropic(key: APIKey, retry_count):
-    key_status = await check_anthropic(key)
-    if key_status is None:
-        return
-    elif key_status is False:
-        i = 0
-        while await check_anthropic(key) is False and i < retry_count:
-            i += 1
-            sleep(1)
-            print(f"Stuck determining pozzed status of rate limited Anthropic key '{key.api_key[-8:]}' - attempt {i} of {retry_count}")
-            key.rate_limited = True
-        else:
-            if i < retry_count:
-                key.rate_limited = False
-    api_keys.add(key)
-
-
-async def validate_ai21_and_mistral(key: APIKey):
-    if await check_ai21(key) is None:
-        key.provider = Provider.MISTRAL
-        if await check_mistral(key) is None:
+async def validate_openai(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        if await get_oai_model(key, session) is None:
             return
-    api_keys.add(key)
+        if await get_oai_key_attribs(key, session) is None:
+            return
+        if await get_oai_org(key, session) is None:
+            return
+        api_keys.add(key)
 
 
-async def validate_makersuite(key: APIKey):
-    if await check_makersuite(key) is None:
-        return
-    api_keys.add(key)
+async def validate_anthropic(key: APIKey, retry_count, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        key_status = await check_anthropic(key, session)
+        if key_status is None:
+            return
+        elif key_status is False:
+            i = 0
+            while await check_anthropic(key, session) is False and i < retry_count:
+                i += 1
+                sleep(1)
+                print(f"Stuck determining pozzed status of rate limited Anthropic key '{key.api_key[-8:]}' - attempt {i} of {retry_count}")
+                key.rate_limited = True
+            else:
+                if i < retry_count:
+                    key.rate_limited = False
+        api_keys.add(key)
+
+
+async def validate_ai21_and_mistral(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        if await check_ai21(key, session) is None:
+            key.provider = Provider.MISTRAL
+            if await check_mistral(key, session) is None:
+                return
+        api_keys.add(key)
+
+
+async def validate_makersuite(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        if await check_makersuite(key, session) is None:
+            return
+        api_keys.add(key)
 
 
 async def validate_aws(key: APIKey):
@@ -94,10 +99,11 @@ async def validate_aws(key: APIKey):
     api_keys.add(key)
 
 
-async def validate_azure(key: APIKey):
-    if await check_azure(key) is None:
-        return
-    api_keys.add(key)
+async def validate_azure(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        if await check_azure(key, session) is None:
+            return
+        api_keys.add(key)
 
 
 async def validate_vertexai(key: APIKey):
@@ -114,12 +120,12 @@ aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
 azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
 # vertex_regex = re.compile(r'^(.+):(ya29.[A-Za-z0-9\-_]{469})$') regex for the oauth tokens, useless since they expire hourly
 
-executor = ThreadPoolExecutor(max_workers=100)
-
 
 async def validate_keys():
     tasks = []
     loop = asyncio.get_event_loop()
+    executor = ThreadPoolExecutor(max_workers=100)
+    concurrent_connections = asyncio.Semaphore(1500)
     for key in inputted_keys:
         if '"' in key[:1]:
             key = key.strip('"')
@@ -132,19 +138,19 @@ async def validate_keys():
             if not match:
                 continue
             key_obj = APIKey(Provider.ANTHROPIC, key)
-            tasks.append(validate_anthropic(key_obj, 20))
+            tasks.append(validate_anthropic(key_obj, 20, concurrent_connections))
         elif "AIzaSy" in key[:6]:
             match = makersuite_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.MAKERSUITE, key)
-            tasks.append(validate_makersuite(key_obj))
+            tasks.append(validate_makersuite(key_obj, concurrent_connections))
         elif "sk-" in key:
             match = oai_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.OPENAI, key)
-            tasks.append(validate_openai(key_obj))
+            tasks.append(validate_openai(key_obj, concurrent_connections))
         elif ":" and "AKIA" in key:
             match = aws_regex.match(key)
             if not match:
@@ -156,13 +162,13 @@ async def validate_keys():
             if not match:
                 continue
             key_obj = APIKey(Provider.AZURE, key)
-            tasks.append(validate_azure(key_obj))
+            tasks.append(validate_azure(key_obj, concurrent_connections))
         else:
             match = ai21_and_mistral_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.AI21, key)
-            tasks.append(validate_ai21_and_mistral(key_obj))
+            tasks.append(validate_ai21_and_mistral(key_obj, concurrent_connections))
     results = await asyncio.gather(*tasks)
     for result in results:
         if result is not None:

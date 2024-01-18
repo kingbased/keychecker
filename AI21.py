@@ -1,8 +1,7 @@
-import aiohttp
 import APIKey
 
 
-async def check_ai21(key: APIKey):
+async def check_ai21(key: APIKey, session):
     url = "https://api.ai21.com/studio/v1/j2-light/complete"
 
     payload = {
@@ -15,15 +14,14 @@ async def check_ai21(key: APIKey):
         "Authorization": f"Bearer {key.api_key}"
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload, headers=headers) as response:
-            if response.status not in [200, 402]:
-                return
+    async with session.post(url, json=payload, headers=headers) as response:
+        if response.status not in [200, 402]:
+            return
 
-            if response.status == 402:  # unsure if this error code also applies to empty keys
-                key.trial_elapsed = True
+        if response.status == 402:  # unsure if this error code also applies to empty keys
+            key.trial_elapsed = True
 
-            return True
+        return True
 
 
 def pretty_print_ai21_keys(keys):

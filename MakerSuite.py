@@ -1,13 +1,11 @@
-import aiohttp
 import APIKey
 
 
-async def check_makersuite(key: APIKey):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key.api_key}") as response:
-            if response.status != 200:
-                return
-            return True
+async def check_makersuite(key: APIKey, session):
+    async with session.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key.api_key}") as response:
+        if response.status != 200:
+            return
+        return True
 
 
 def pretty_print_makersuite_keys(keys):
