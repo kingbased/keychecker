@@ -1,5 +1,5 @@
-boto3~=1.29.7
-botocore~=1.32.7
+aiohttp~=3.9.1
+boto3~=1.29.0
+botocore~=1.32.0
 google_cloud_aiplatform~=1.37.0
 protobuf~=4.25.2
-requests~=2.31.0

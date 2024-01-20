@@ -1,12 +1,11 @@
-import requests
 import APIKey
 
 
-def check_makersuite(key: APIKey):
-    response = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key.api_key}")
-    if response.status_code != 200:
-        return
-    return True
+async def check_makersuite(key: APIKey, session):
+    async with session.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key.api_key}") as response:
+        if response.status != 200:
+            return
+        return True
 
 
 def pretty_print_makersuite_keys(keys):
