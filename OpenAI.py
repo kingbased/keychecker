@@ -55,16 +55,18 @@ async def get_oai_key_tier(key: APIKey, session):
     if key.trial:
         return 'Free'
     tts_object = {"model": "tts-1-hd", "input": "", "voice": "alloy"}
-    async with session.post(f'{oai_api_url}/audio/speech',
-                            headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                            json=tts_object) as response:
-        if response.status in [400, 429]:
-            try:
-                return oai_tiers[int(response.headers.get("x-ratelimit-limit-requests"))]
-            except KeyError:
+    for _ in range(3):  # we'll give it 3 shots if oai decides to shid itself.
+        async with session.post(f'{oai_api_url}/audio/speech',
+                                headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
+                                json=tts_object) as response:
+            if response.status in [400, 429]:
+                try:
+                    return oai_tiers[int(response.headers.get("x-ratelimit-limit-requests"))]
+                except (KeyError, TypeError, ValueError):
+                    continue
+            else:
                 return
-        else:
-            return
+    return
 
 
 async def get_oai_org(key: APIKey, session):

@@ -93,7 +93,7 @@ async def validate_makersuite(key: APIKey, sem):
         api_keys.add(key)
 
 
-async def validate_aws(key: APIKey):
+def validate_aws(key: APIKey):
     if check_aws(key) is None:
         return
     api_keys.add(key)
@@ -106,7 +106,7 @@ async def validate_azure(key: APIKey, sem):
         api_keys.add(key)
 
 
-async def validate_vertexai(key: APIKey):
+def validate_vertexai(key: APIKey):
     if check_vertexai(key) is None:
         return
     api_keys.add(key)
