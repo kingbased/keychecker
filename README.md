@@ -12,6 +12,8 @@ Currently supports and validates keys for the services below, and checks for the
 - Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly. Good luck scraping for those.)
 - MistralAI - (Subscription status)
 
+Always open to adding more services, although I think I've covered all the ones people care about. Nonetheless, feel free to open an issue or PR if you want something else added.
+
 # Usage:
 `pip install -r requirements.txt`
 
