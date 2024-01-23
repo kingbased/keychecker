@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument('-nooutput', '--nooutput', action='store_true', help='stop writing slop to a file')
     parser.add_argument('-proxyoutput', '--proxyoutput', action='store_true', help='proxy format output for easy copying')
     parser.add_argument('-file', '--file', action='store', dest='file', help='read slop from a provided filename')
+    parser.add_argument('-verbose', '--verbose', action='store_true', help='watch as your slop is checked real time')
     return parser.parse_args()
 
 
@@ -50,19 +51,24 @@ else:
 
 async def validate_openai(key: APIKey, sem):
     async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking OpenAI key: {key.api_key}", args.verbose)
         if await get_oai_model(key, session) is None:
+            IO.conditional_print(f"Invalid OpenAI key: {key.api_key}", args.verbose)
             return
         if await get_oai_key_attribs(key, session) is None:
             return
         if await get_oai_org(key, session) is None:
             return
+        IO.conditional_print(f"OpenAI key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
 
 
 async def validate_anthropic(key: APIKey, retry_count, sem):
     async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking Anthropic key: {key.api_key}", args.verbose)
         key_status = await check_anthropic(key, session)
         if key_status is None:
+            IO.conditional_print(f"Invalid Anthropic key: {key.api_key}", args.verbose)
             return
         elif key_status is False:
             i = 0
@@ -74,41 +80,58 @@ async def validate_anthropic(key: APIKey, retry_count, sem):
             else:
                 if i < retry_count:
                     key.rate_limited = False
+        IO.conditional_print(f"Anthropic key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
 
 
 async def validate_ai21_and_mistral(key: APIKey, sem):
     async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking AI21 key: {key.api_key}", args.verbose)
         if await check_ai21(key, session) is None:
+            IO.conditional_print(f"Invalid AI21 key: {key.api_key}, checking provider Mistral", args.verbose)
             key.provider = Provider.MISTRAL
             if await check_mistral(key, session) is None:
+                IO.conditional_print(f"Invalid Mistral key: {key.api_key}", args.verbose)
                 return
+        IO.conditional_print(f"{'AI21' if key.provider == Provider.AI21 else 'Mistral'} key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
 
 
 async def validate_makersuite(key: APIKey, sem):
     async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking MakerSuite key: {key.api_key}", args.verbose)
         if await check_makersuite(key, session) is None:
+            IO.conditional_print(f"Invalid MakerSuite key: {key.api_key}", args.verbose)
             return
+        IO.conditional_print(f"MakerSuite key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
 
 
 def validate_aws(key: APIKey):
+    IO.conditional_print(f"Checking AWS key: {key.api_key}", args.verbose)
     if check_aws(key) is None:
+        IO.conditional_print(f"Invalid AWS key: {key.api_key}", args.verbose)
         return
+    IO.conditional_print(f"AWS key '{key.api_key}' is valid", args.verbose)
     api_keys.add(key)
 
 
 async def validate_azure(key: APIKey, sem):
     async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking Azure key: {key.api_key}", args.verbose)
         if await check_azure(key, session) is None:
+            IO.conditional_print(f"Invalid Azure key: {key.api_key}", args.verbose)
             return
+        IO.conditional_print(f"Azure key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
 
 
 def validate_vertexai(key: APIKey):
+    IO.conditional_print(f"Checking Vertex AI keyfile: {key.api_key}", args.verbose)
     if check_vertexai(key) is None:
+        IO.conditional_print(f"Invalid Vertex AI keyfile: {key.api_key}", args.verbose)
         return
+    IO.conditional_print(f"Vertex AI keyfile '{key.api_key}' is valid", args.verbose)
     api_keys.add(key)
 
 

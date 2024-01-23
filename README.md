@@ -31,3 +31,7 @@ Stops outputting and saving keys to the snapshot file (proxyoutput will also do 
 `-file`
 
 Reads keys from a file instead of stdin, place either the absolute or relative path to the file in quotes after the flag.
+
+`-verbose`
+
+Displays an output as keys are being checked real time.

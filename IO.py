@@ -15,6 +15,11 @@ class IO:
         pass
 
     @staticmethod
+    def conditional_print(message, condition):
+        if condition:
+            print(message)
+
+    @staticmethod
     def read_keys_from_file(filename):
         if not os.path.isfile(filename):
             print(f'Provided file {filename} does not exist. Exiting...')
