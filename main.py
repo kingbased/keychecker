@@ -74,7 +74,7 @@ async def validate_anthropic(key: APIKey, retry_count, sem):
             i = 0
             while await check_anthropic(key, session) is False and i < retry_count:
                 i += 1
-                sleep(1)
+                await asyncio.sleep(1)
                 print(f"Stuck determining pozzed status of rate limited Anthropic key '{key.api_key[-8:]}' - attempt {i} of {retry_count}")
                 key.rate_limited = True
             else:
