@@ -56,7 +56,15 @@ def check_aws(key: APIKey):
             else:
                 key.useless_reasons.append('Failed Region Fetch')
 
-            username = sts_client.get_caller_identity()['Arn'].split('/')[1]
+            response = sts_client.get_caller_identity()
+            if response and 'Arn' in response:
+                arn_parts = response['Arn'].split('/')
+                if len(arn_parts) > 1:
+                    username = arn_parts[1]
+                else:
+                    username = 'default'
+            else:
+                username = 'default'
             if username is not None:
                 key.username = username
         except botocore.exceptions.ClientError:
