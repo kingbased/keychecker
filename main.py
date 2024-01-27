@@ -9,7 +9,7 @@ from VertexAI import check_vertexai, pretty_print_vertexai_keys
 from Mistral import check_mistral, pretty_print_mistral_keys
 
 from APIKey import APIKey, Provider
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 from datetime import datetime
 import re
@@ -115,14 +115,13 @@ def validate_aws(key: APIKey):
     api_keys.add(key)
 
 
-async def validate_azure(key: APIKey, sem):
-    async with sem, aiohttp.ClientSession() as session:
-        IO.conditional_print(f"Checking Azure key: {key.api_key}", args.verbose)
-        if await check_azure(key, session) is None:
-            IO.conditional_print(f"Invalid Azure key: {key.api_key}", args.verbose)
-            return
-        IO.conditional_print(f"Azure key '{key.api_key}' is valid", args.verbose)
-        api_keys.add(key)
+def validate_azure(key: APIKey):
+    IO.conditional_print(f"Checking Azure key: {key.api_key}", args.verbose)
+    if check_azure(key) is None:
+        IO.conditional_print(f"Invalid Azure key: {key.api_key}", args.verbose)
+        return
+    IO.conditional_print(f"Azure key '{key.api_key}' is valid", args.verbose)
+    api_keys.add(key)
 
 
 def validate_vertexai(key: APIKey):
@@ -147,14 +146,14 @@ concurrent_connections = asyncio.Semaphore(1500)
 
 async def validate_keys():
     tasks = []
-    loop = asyncio.get_event_loop()
+    futures = []
     for key in inputted_keys:
         if '"' in key[:1]:
             key = key.strip('"')
             if not os.path.isfile(key):
                 continue
             key_obj = APIKey(Provider.VERTEXAI, key)
-            tasks.append(loop.run_in_executor(executor, validate_vertexai, key_obj))
+            futures.append(executor.submit(validate_vertexai, key_obj))
         elif "ant-api03" in key:
             match = anthropic_regex.match(key)
             if not match:
@@ -178,13 +177,13 @@ async def validate_keys():
             if not match:
                 continue
             key_obj = APIKey(Provider.AWS, key)
-            tasks.append(loop.run_in_executor(executor, validate_aws, key_obj))
+            futures.append(executor.submit(validate_aws, key_obj))
         elif ":" in key and "AKIA" not in key:
             match = azure_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.AZURE, key)
-            tasks.append(validate_azure(key_obj, concurrent_connections))
+            futures.append(executor.submit(validate_azure, key_obj))
         else:
             match = ai21_and_mistral_regex.match(key)
             if not match:
@@ -195,6 +194,10 @@ async def validate_keys():
     for result in results:
         if result is not None:
             api_keys.add(result)
+
+    for _ in as_completed(futures):
+        pass
+    futures.clear()
 
 
 def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys):
