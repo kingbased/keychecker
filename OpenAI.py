@@ -28,7 +28,6 @@ async def get_oai_key_attribs(key: APIKey, session):
                             headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
                             json=chat_object) as response:
         if response.status in [400, 429]:
-            print(response.headers)
             data = await response.json()
             message = data["error"]["type"]
             if message is None:
