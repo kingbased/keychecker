@@ -2,7 +2,7 @@ import APIKey
 
 oai_api_url = "https://api.openai.com/v1"
 oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
-oai_tiers = {3: 'Tier1', 5: 'Tier2', 7: 'Tier3', 10: 'Tier4', 20: 'Tier5'}
+oai_tiers = {40000: 'Free', 60000: 'Tier1', 80000: 'Tier2', 160000: 'Tier3', 1000000: 'Tier4', 2000000: 'Tier5'}
 
 async def get_oai_model(key: APIKey, session):
     async with session.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
@@ -28,6 +28,7 @@ async def get_oai_key_attribs(key: APIKey, session):
                             headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
                             json=chat_object) as response:
         if response.status in [400, 429]:
+            print(response.headers)
             data = await response.json()
             message = data["error"]["type"]
             if message is None:
@@ -54,14 +55,14 @@ async def get_oai_key_attribs(key: APIKey, session):
 async def get_oai_key_tier(key: APIKey, session):
     if key.trial:
         return 'Free'
-    tts_object = {"model": "tts-1-hd", "input": "", "voice": "alloy"}
+    chat_object = {"model": f'gpt-3.5-turbo', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
     for _ in range(3):  # we'll give it 3 shots if oai decides to shid itself.
-        async with session.post(f'{oai_api_url}/audio/speech',
+        async with session.post(f'{oai_api_url}/chat/completions',
                                 headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                                json=tts_object) as response:
+                                json=chat_object) as response:
             if response.status in [400, 429]:
                 try:
-                    return oai_tiers[int(response.headers.get("x-ratelimit-limit-requests"))]
+                    return oai_tiers[int(response.headers.get("x-ratelimit-limit-tokens"))]
                 except (KeyError, TypeError, ValueError):
                     continue
             else:
