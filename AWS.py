@@ -4,35 +4,13 @@ import APIKey
 import botocore.exceptions
 
 
+# us-gov-west-1 is also a supported bedrock region but needs an additional security token
 aws_regions = [
-    "us-east-2",
     "us-east-1",
-    "us-west-1",
     "us-west-2",
-    "af-south-1",
-    "ap-east-1",
-    "ap-south-2",
-    "ap-southeast-3",
-    "ap-southeast-4",
-    "ap-south-1",
-    "ap-northeast-3",
-    "ap-northeast-2",
     "ap-southeast-1",
-    "ap-southeast-2",
     "ap-northeast-1",
-    "ca-central-1",
     "eu-central-1",
-    "eu-west-1",
-    "eu-west-2",
-    "eu-south-1",
-    "eu-west-3",
-    "eu-south-2",
-    "eu-north-1",
-    "eu-central-2",
-    "il-central-1",
-    "me-south-1",
-    "me-central-1",
-    "sa-east-1"
 ]
 
 
@@ -49,8 +27,9 @@ def check_aws(key: APIKey):
             bedrock_runtime_client = session.client("bedrock-runtime")
 
             region = get_region(session)
-            if region is not None:
-                key.region = region
+            if region is not None and len(region) > 0:
+                key.region = region[0]
+                key.alt_regions = region[1:]
                 # key.bedrock_enabled = True
                 key.useless = False
             else:
@@ -102,6 +81,11 @@ def check_aws(key: APIKey):
                             key.useless = False
                         continue
 
+                # Admin keys will never expose this policy even if they are quarantined.
+                if "AWSCompromisedKeyQuarantine" in policy["PolicyName"]:
+                    key.useless = True
+                    key.useless_reasons.append('Quarantined Key')
+                    break
         if not key.useless:
             check_logging(session, key)
         elif key.useless and policies is not None:
@@ -115,6 +99,7 @@ def check_aws(key: APIKey):
 
 
 def get_region(session):
+    regions = []
     for region in aws_regions:
         try:
             bedrock_client = session.client("bedrock", region_name=region)
@@ -122,9 +107,10 @@ def get_region(session):
             cloudies = ['anthropic.claude-v1', 'anthropic.claude-v2']
             models = [model['modelId'] for model in response.get('modelSummaries', [])]
             if all(model_id in models for model_id in cloudies):
-                return region
+                regions.append(region)
         except botocore.exceptions.ClientError:
             return
+    return regions
 
 
 def test_invoke_perms(bedrock_runtime_client):
@@ -177,6 +163,7 @@ def pretty_print_aws_keys(keys):
         for key in ready_to_go_keys:
             print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
                   (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else "") +
+                  (f' | alt regions - {key.alt_regions}' if key.alt_regions else "") +
                   (' | LOGGED KEY' if key.logged is True else ""))
 
     if needs_setup_keys:

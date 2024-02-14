@@ -49,14 +49,15 @@ else:
 
 
 async def validate_openai(key: APIKey, sem):
+    retries = 10
     async with sem, aiohttp.ClientSession() as session:
         IO.conditional_print(f"Checking OpenAI key: {key.api_key}", args.verbose)
-        if await get_oai_model(key, session) is None:
+        if await get_oai_model(key, session, retries) is None:
             IO.conditional_print(f"Invalid OpenAI key: {key.api_key}", args.verbose)
             return
-        if await get_oai_key_attribs(key, session) is None:
+        if await get_oai_key_attribs(key, session, retries) is None:
             return
-        if await get_oai_org(key, session) is None:
+        if await get_oai_org(key, session, retries) is None:
             return
         IO.conditional_print(f"OpenAI key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)

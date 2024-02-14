@@ -28,6 +28,7 @@ class APIKey:
             self.admin_priv = False
             self.bedrock_enabled = False
             self.region = ""
+            self.alt_regions = []
             self.useless_reasons = []
             self.logged = False
 

@@ -1,61 +1,66 @@
 import APIKey
+import asyncio
 
 oai_api_url = "https://api.openai.com/v1"
 oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
 oai_tiers = {40000: 'Free', 60000: 'Tier1', 80000: 'Tier2', 160000: 'Tier3', 1000000: 'Tier4', 2000000: 'Tier5'}
 
-async def get_oai_model(key: APIKey, session):
-    async with session.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
-        if response.status != 200:
-            return
-        else:
-            data = await response.json()
-            models = data["data"]
-            top_model = "gpt-3.5-turbo"
-            for model in models:
-                if model["id"] == "gpt-4-32k":
-                    top_model = model["id"]
-                    break
-                elif model["id"] == "gpt-4":
-                    top_model = model["id"]
-            key.model = top_model
-            return True
-
-
-async def get_oai_key_attribs(key: APIKey, session):
-    chat_object = {"model": f'{key.model}', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
-    async with session.post(f'{oai_api_url}/chat/completions',
-                            headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                            json=chat_object) as response:
-        if response.status in [400, 429]:
-            data = await response.json()
-            message = data["error"]["type"]
-            if message is None:
+async def get_oai_model(key: APIKey, session, retries):
+    for _ in range(retries):
+        async with session.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+            if response.status == 200:
+                data = await response.json()
+                models = data["data"]
+                top_model = "gpt-3.5-turbo"
+                for model in models:
+                    if model["id"] == "gpt-4-32k":
+                        top_model = model["id"]
+                        break
+                    elif model["id"] == "gpt-4":
+                        top_model = model["id"]
+                key.model = top_model
+                return True
+            elif response.status != 502:
                 return
-            match message:
-                case "access_terminated":
+        await asyncio.sleep(0.5)
+
+
+async def get_oai_key_attribs(key: APIKey, session, retries):
+    chat_object = {"model": f'{key.model}', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
+    for _ in range(retries):
+        async with session.post(f'{oai_api_url}/chat/completions',
+                                headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
+                                json=chat_object) as response:
+            if response.status in [400, 429]:
+                data = await response.json()
+                message = data["error"]["type"]
+                if message is None:
                     return
-                case "billing_not_active":
-                    return
-                case "insufficient_quota":
-                    key.has_quota = False
-                case "invalid_request_error":
-                    key.has_quota = True
-                    key.rpm = int(response.headers.get("x-ratelimit-limit-requests"))
-                    if key.rpm < oai_t1_rpm_limits[key.model]:  # oddly seen some gpt4 trial keys
-                        key.trial = True
-                    key.tier = await get_oai_key_tier(key, session)
-        else:
-            return
-        return True
+                match message:
+                    case "access_terminated":
+                        return
+                    case "billing_not_active":
+                        return
+                    case "insufficient_quota":
+                        key.has_quota = False
+                    case "invalid_request_error":
+                        key.has_quota = True
+                        key.rpm = int(response.headers.get("x-ratelimit-limit-requests"))
+                        if key.rpm < oai_t1_rpm_limits[key.model]:  # oddly seen some gpt4 trial keys
+                            key.trial = True
+                        key.tier = await get_oai_key_tier(key, session, retries)
+                return True
+            elif response.status != 502:
+                return
+        await asyncio.sleep(0.5)
 
 
 # this will weed out fake t4/t5 keys reporting a 10k rpm limit, those keys would have requested to have their rpm increased
-async def get_oai_key_tier(key: APIKey, session):
+async def get_oai_key_tier(key: APIKey, session, retries):
     if key.trial:
         return 'Free'
     chat_object = {"model": f'gpt-3.5-turbo', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
-    for _ in range(3):  # we'll give it 3 shots if oai decides to shid itself.
+    for _ in range(retries):
         async with session.post(f'{oai_api_url}/chat/completions',
                                 headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
                                 json=chat_object) as response:
@@ -64,25 +69,27 @@ async def get_oai_key_tier(key: APIKey, session):
                     return oai_tiers[int(response.headers.get("x-ratelimit-limit-tokens"))]
                 except (KeyError, TypeError, ValueError):
                     continue
-            else:
+            elif response.status != 502:
                 return
+        await asyncio.sleep(0.5)
     return
 
+async def get_oai_org(key: APIKey, session, retries):
+    for _ in range(retries):
+        async with session.get(f'{oai_api_url}/organizations', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+            if response.status == 200:
+                data = await response.json()
+                orgs = data["data"]
 
-async def get_oai_org(key: APIKey, session):
-    async with session.get(f'{oai_api_url}/organizations', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
-        if response.status != 200:
-            return
-
-        data = await response.json()
-        orgs = data["data"]
-
-        for org in orgs:
-            if not org["personal"]:
-                if org["is_default"]:
-                    key.default_org = org["name"]
-                key.organizations.append(org["name"])
-        return True
+                for org in orgs:
+                    if not org["personal"]:
+                        if org["is_default"]:
+                            key.default_org = org["name"]
+                        key.organizations.append(org["name"])
+                return True
+            elif response.status != 502:
+                return
+        await asyncio.sleep(0.5)
 
 
 def check_manual_increase(key: APIKey):
