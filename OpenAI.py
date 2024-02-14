@@ -5,6 +5,7 @@ oai_api_url = "https://api.openai.com/v1"
 oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
 oai_tiers = {40000: 'Free', 60000: 'Tier1', 80000: 'Tier2', 160000: 'Tier3', 1000000: 'Tier4', 2000000: 'Tier5'}
 
+
 async def get_oai_model(key: APIKey, session, retries):
     for _ in range(retries):
         async with session.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
@@ -73,6 +74,7 @@ async def get_oai_key_tier(key: APIKey, session, retries):
                 return
         await asyncio.sleep(0.5)
     return
+
 
 async def get_oai_org(key: APIKey, session, retries):
     for _ in range(retries):
