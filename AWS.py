@@ -18,50 +18,81 @@ def check_aws(key: APIKey):
     line = key.api_key.split(":")
     access_key = line[0]
     secret = line[1]
-
     try:
         try:
-            session = boto3.Session(aws_access_key_id=access_key,aws_secret_access_key=secret)
+            session = boto3.Session(aws_access_key_id=access_key, aws_secret_access_key=secret)
+            test_invoke_perms(session, key)
+
+            if key.useless:
+                key.useless_reasons.append('Failed Invoke Check')
+
+            if key.region != "":
+                # recreate the session with the correct region
+                session = boto3.Session(aws_access_key_id=access_key, aws_secret_access_key=secret, region_name=key.region)
+
             sts_client = session.client("sts")
             iam_client = session.client("iam")
-            bedrock_runtime_client = session.client("bedrock-runtime")
 
-            region = get_region(session)
-            if region is not None and len(region) > 0:
-                key.region = region[0]
-                key.alt_regions = region[1:]
-                # key.bedrock_enabled = True
-                key.useless = False
-            else:
-                key.useless_reasons.append('Failed Region Fetch')
+            key.username = get_username(sts_client)
+            policies = get_key_policies(iam_client, key)
 
-            response = sts_client.get_caller_identity()
-            if response and 'Arn' in response:
-                arn_parts = response['Arn'].split('/')
-                if len(arn_parts) > 1:
-                    username = arn_parts[1]
-                else:
-                    username = 'default'
-            else:
-                username = 'default'
-            if username is not None:
-                key.username = username
         except botocore.exceptions.ClientError:
             return
 
-        policies = None
+        if not key.useless and key.bedrock_enabled:
+            check_logging(session, key)
+        elif key.useless and policies is not None:
+            key.useless_reasons.append('Key policies lack Admin or User Creation perms')
+        return True
+
+    except botocore.exceptions.ClientError as e:
+        print(e)
+        return
+
+
+def test_invoke_perms(session, key: APIKey):
+    data = {
+        "prompt": "\n\nHuman:\n\nAssistant:",
+        "max_tokens_to_sample": -1,
+    }
+    for region in aws_regions:
+        bedrock_runtime_client = None
         try:
-            policies = iam_client.list_attached_user_policies(UserName=username)['AttachedPolicies']
-        except botocore.exceptions.ClientError:
-            key.useless_reasons.append('Failed Policy Fetch')
-
-        can_invoke = test_invoke_perms(bedrock_runtime_client)
-        if can_invoke is not None:
-            key.bedrock_enabled = True
+            bedrock_runtime_client = session.client("bedrock-runtime", region_name=region)
+            # v1 is not enabled in some regions where v2 is, proxies will report keys in these regions as logged and will by default ignore them despite them working fine for v2
+            bedrock_runtime_client.invoke_model(body=json.dumps(data), modelId="anthropic.claude-v2")
+        except bedrock_runtime_client.exceptions.ValidationException as e:
+            if 'max_tokens_to_sample' in e.response['Error']['Message']:
+                if key.region == "":
+                    key.region = region
+                else:
+                    key.alt_regions.append(region)
+                key.bedrock_enabled = True
             key.useless = False
-        else:
-            key.useless_reasons.append('Failed Model Invoke Check')
+            continue
+        except bedrock_runtime_client.exceptions.AccessDeniedException:
+            continue
+        except bedrock_runtime_client.exceptions.ResourceNotFoundException:
+            continue
+    return True
 
+
+def get_username(sts_client):
+    response = sts_client.get_caller_identity()
+    if response and 'Arn' in response:
+        arn_parts = response['Arn'].split('/')
+        if len(arn_parts) > 1:
+            username = arn_parts[1]
+        else:
+            username = 'default'
+    else:
+        username = 'default'
+    return username
+
+
+def get_key_policies(iam_client, key: APIKey):
+    try:
+        policies = iam_client.list_attached_user_policies(UserName=key.username)['AttachedPolicies']
         if policies is not None:
             for policy in policies:
                 if "AdministratorAccess" in policy["PolicyName"]:
@@ -86,43 +117,9 @@ def check_aws(key: APIKey):
                     key.useless = True
                     key.useless_reasons.append('Quarantined Key')
                     break
-        if not key.useless:
-            check_logging(session, key)
-        elif key.useless and policies is not None:
-            key.useless_reasons.append('Key policies lack Admin or User Creation perms')
-        return True
-
-    except botocore.exceptions.ClientError as e:
-        print(e)
-        print("Please report this on github if you see this because I missed something if this shows up.")
-        return
-
-
-def get_region(session):
-    regions = []
-    for region in aws_regions:
-        try:
-            bedrock_client = session.client("bedrock", region_name=region)
-            response = bedrock_client.list_foundation_models()
-            cloudies = ['anthropic.claude-v1', 'anthropic.claude-v2']
-            models = [model['modelId'] for model in response.get('modelSummaries', [])]
-            if all(model_id in models for model_id in cloudies):
-                regions.append(region)
-        except botocore.exceptions.ClientError:
-            return
-    return regions
-
-
-def test_invoke_perms(bedrock_runtime_client):
-    data = {
-        "prompt": "\n\nHuman:\n\nAssistant:",
-        "max_tokens_to_sample": -1,
-    }
-    try:
-        bedrock_runtime_client.invoke_model(body=json.dumps(data), modelId="anthropic.claude-instant-v1")
-    except bedrock_runtime_client.exceptions.ValidationException:
-        return True
-    except bedrock_runtime_client.exceptions.AccessDeniedException:
+            return policies
+    except botocore.exceptions.ClientError:
+        key.useless_reasons.append('Failed Policy Fetch')
         return
 
 
@@ -167,10 +164,10 @@ def pretty_print_aws_keys(keys):
                   (' | LOGGED KEY' if key.logged is True else ""))
 
     if needs_setup_keys:
-        print(f"\nValidated {len(needs_setup_keys)} AWS keys that failed to invoke Claude and need further permissions setup. Keys without a region displayed do not have the models setup and need to do so")
+        print(f"\nValidated {len(needs_setup_keys)} AWS keys that failed to invoke Claude and need further permissions setup.")
         for key in needs_setup_keys:
             print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "") +
-                  (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else ""))
+                  (' | admin key' if key.admin_priv else ""))
 
     if useless_keys:
         print(f"\nValidated {len(useless_keys)} AWS keys that are deemed useless and most likely s3 slop (can't be used to setup Bedrock/Claude)")

@@ -279,7 +279,7 @@ def output_keys():
         # ai21 and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
         print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
-        print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{key.region}" for key in valid_aws_keys if not key.useless and key.bedrock_enabled))
+        print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{region}" for key in valid_aws_keys if not key.useless and key.bedrock_enabled for region in [key.region] + key.alt_regions))
         print("GOOGLE_AI_KEY=" + ','.join(key.api_key for key in valid_makersuite_keys))
         print("AZURE_CREDENTIALS=" + ','.join(f"{key.api_key.split(':')[0]}:{key.best_deployment}:{key.api_key.split(':')[1]}" for key in valid_azure_keys if key.unfiltered))
         print("MISTRAL_AI_KEY=" + ','.join(key.api_key for key in valid_mistral_keys))
