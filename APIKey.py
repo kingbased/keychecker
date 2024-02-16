@@ -45,6 +45,9 @@ class APIKey:
         elif provider == Provider.MISTRAL:
             self.subbed = False
 
+        elif provider == Provider.MAKERSUITE:
+            self.models = []
+
 
 class Provider(Enum):
     OPENAI = 1,
