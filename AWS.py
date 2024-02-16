@@ -82,7 +82,7 @@ def check_aws(key: APIKey):
                         continue
 
                 # Admin keys will never expose this policy even if they are quarantined.
-                if "AWSCompromisedKeyQuarantine" in policy["PolicyName"]:
+                if "AWSCompromisedKeyQuarantine" in policy["PolicyName"] and not key.bedrock_enabled:
                     key.useless = True
                     key.useless_reasons.append('Quarantined Key')
                     break
