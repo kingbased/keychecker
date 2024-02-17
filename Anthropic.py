@@ -1,7 +1,7 @@
 import APIKey
 
 async def check_anthropic(key: APIKey, session):
-    pozzed_message = "ethically"
+    pozzed_messages = ["ethically", "copyrighted material"]
     headers = {
         'content-type': 'application/json',
         'anthropic-version': '2023-06-01',
@@ -21,8 +21,7 @@ async def check_anthropic(key: APIKey, session):
             return False
 
         text = await response.text()
-        if pozzed_message in text:
-            key.pozzed = True
+        key.pozzed = any(message in text for message in pozzed_messages)
 
         return True
 
