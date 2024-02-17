@@ -119,7 +119,8 @@ def get_key_policies(iam_client, key: APIKey):
                     break
             return policies
     except botocore.exceptions.ClientError:
-        key.useless = True
+        if not key.bedrock_enabled:
+            key.useless = True
         key.useless_reasons.append('Failed Policy Fetch')
         return
 
