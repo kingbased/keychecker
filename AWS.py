@@ -119,6 +119,7 @@ def get_key_policies(iam_client, key: APIKey):
                     break
             return policies
     except botocore.exceptions.ClientError:
+        key.useless = True
         key.useless_reasons.append('Failed Policy Fetch')
         return
 
@@ -173,5 +174,5 @@ def pretty_print_aws_keys(keys):
         print(f"\nValidated {len(useless_keys)} AWS keys that are deemed useless and most likely s3 slop (can't be used to setup Bedrock/Claude)")
         for key in useless_keys:
             print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "")
-                  + (f' | REASON - {key.useless_reasons}' if len(key.useless_reasons) > 1 else ''))
+                  + (f' | REASON - {key.useless_reasons}' if len(key.useless_reasons) > 0 else ''))
     print(f'\n--- Total Valid RPable AWS Keys: {len(keys) - len(useless_keys)} ({admin_count} with admin priv) ---\n')
