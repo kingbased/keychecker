@@ -48,6 +48,13 @@ class APIKey:
         elif provider == Provider.MAKERSUITE:
             self.models = []
 
+        elif provider == Provider.OPENROUTER:
+            self.usage = 0
+            self.credit_limit = 0
+            self.rpm = 0
+            self.balance = 0
+            self.limit_reached = False
+            self.bought_credits = False
 
 class Provider(Enum):
     OPENAI = 1,
@@ -58,3 +65,4 @@ class Provider(Enum):
     AZURE = 6
     VERTEXAI = 7
     MISTRAL = 8
+    OPENROUTER = 9

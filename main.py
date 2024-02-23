@@ -7,6 +7,7 @@ from AWS import check_aws, pretty_print_aws_keys
 from Azure import check_azure, pretty_print_azure_keys
 from VertexAI import check_vertexai, pretty_print_vertexai_keys
 from Mistral import check_mistral, pretty_print_mistral_keys
+from OpenRouter import check_openrouter, pretty_print_openrouter_keys
 
 from APIKey import APIKey, Provider
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -107,6 +108,16 @@ async def validate_makersuite(key: APIKey, sem):
         api_keys.add(key)
 
 
+async def validate_openrouter(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking OpenRouter: {key.api_key}", args.verbose)
+        if await check_openrouter(key, session) is None:
+            IO.conditional_print(f"Invalid OpenRouter key: {key.api_key}", args.verbose)
+            return
+        IO.conditional_print(f"OpenRouter key '{key.api_key}' is valid", args.verbose)
+        api_keys.add(key)
+
+
 def validate_aws(key: APIKey):
     IO.conditional_print(f"Checking AWS key: {key.api_key}", args.verbose)
     if check_aws(key) is None:
@@ -140,6 +151,7 @@ ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
 makersuite_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
 azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
+openrouter_regex = re.compile(r'sk-or-v1-[a-z0-9]{64}')
 # vertex_regex = re.compile(r'^(.+):(ya29.[A-Za-z0-9\-_]{469})$') regex for the oauth tokens, useless since they expire hourly
 executor = ThreadPoolExecutor(max_workers=100)
 concurrent_connections = asyncio.Semaphore(1500)
@@ -167,6 +179,12 @@ async def validate_keys():
                 continue
             key_obj = APIKey(Provider.MAKERSUITE, key)
             tasks.append(validate_makersuite(key_obj, concurrent_connections))
+        elif "sk-or-v1-" in key:
+            match = openrouter_regex.match(key)
+            if not match:
+                continue
+            key_obj = APIKey(Provider.OPENROUTER, key)
+            tasks.append(validate_openrouter(key_obj, concurrent_connections))
         elif "sk-" in key:
             match = oai_regex.match(key)
             if not match:
@@ -201,7 +219,7 @@ async def validate_keys():
     futures.clear()
 
 
-def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys):
+def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys):
     valid_oai_keys_set = set([key.api_key for key in valid_oai_keys])
     valid_anthropic_keys_set = set([key.api_key for key in valid_anthropic_keys])
     valid_ai21_keys_set = set([key.api_key for key in valid_ai21_keys])
@@ -210,8 +228,9 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
     valid_azure_keys_set = set([key.api_key for key in valid_azure_keys])
     valid_vertexai_keys_set = set([key.api_key for key in valid_vertexai_keys])
     valid_mistral_keys_set = set([key.api_key for key in valid_mistral_keys])
+    valid_openrouter_keys_set = set([key.api_key for key in valid_openrouter_keys])
 
-    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set - valid_mistral_keys_set
+    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set - valid_mistral_keys_set - valid_openrouter_keys_set
     if len(invalid_keys) < 1:
         return
     print('\nInvalid Keys:')
@@ -230,6 +249,7 @@ def output_keys():
     valid_azure_keys = []
     valid_vertexai_keys = []
     valid_mistral_keys = []
+    valid_openrouter_keys = []
 
     for key in api_keys:
         if key.provider == Provider.OPENAI:
@@ -248,6 +268,8 @@ def output_keys():
             valid_vertexai_keys.append(key)
         elif key.provider == Provider.MISTRAL:
             valid_mistral_keys.append(key)
+        elif key.provider == Provider.OPENROUTER:
+            valid_openrouter_keys.append(key)
     if should_write:
         output_filename = "key_snapshots.txt"
         sys.stdout = IO(output_filename)
@@ -257,7 +279,7 @@ def output_keys():
         print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("#" * 90)
         print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
-        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys)
+        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys)
         print()
         if valid_oai_keys:
             pretty_print_oai_keys(valid_oai_keys)
@@ -275,8 +297,10 @@ def output_keys():
             pretty_print_vertexai_keys(valid_vertexai_keys)
         if valid_mistral_keys:
             pretty_print_mistral_keys(valid_mistral_keys)
+        if valid_openrouter_keys:
+            pretty_print_openrouter_keys(valid_openrouter_keys)
     else:
-        # ai21 and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
+        # ai21, openrouter and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
         print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
         print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{region}" for key in valid_aws_keys if not key.useless and key.bedrock_enabled for region in [key.region] + key.alt_regions))

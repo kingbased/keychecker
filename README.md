@@ -11,6 +11,7 @@ Currently supports and validates keys for the services below, and checks for the
 - Azure - (Auto-fetch all deployments, auto-fetch best deployment/model, filter status)
 - Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly. Good luck scraping for those.)
 - MistralAI - (Subscription status)
+- OpenRouter - (Estimated balance, usage in $, credit limit, RPM, has purchased any credits)
 
 Always open to adding more services, although I think I've covered all the ones people care about. Nonetheless, feel free to open an issue or PR if you want something else added.
 
