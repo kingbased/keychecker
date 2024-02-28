@@ -11,7 +11,7 @@ async def check_mistral(key: APIKey, session):
 
 async def check_sub_status(key: APIKey, session):
     data = {
-        'model': 'mistral-tiny',
+        'model': 'open-mistral-7b',
         'messages': [{'role': 'user', 'content': ''}],
         'max_tokens': 1
     }
