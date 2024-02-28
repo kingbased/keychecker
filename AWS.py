@@ -95,9 +95,10 @@ def get_key_policies(iam_client, key: APIKey):
         policies = iam_client.list_attached_user_policies(UserName=key.username)['AttachedPolicies']
         if policies is not None:
             if any("AWSCompromisedKeyQuarantine" in policy["PolicyName"] for policy in policies):
-                key.useless = True
-                key.useless_reasons.append('Quarantined Key')
-                return
+                if not key.bedrock_enabled:
+                    key.useless = True
+                    key.useless_reasons.append('Quarantined Key')
+                    return
 
             if any("AdministratorAccess" in policy["PolicyName"] for policy in policies):
                 key.admin_priv = True
