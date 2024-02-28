@@ -94,29 +94,28 @@ def get_key_policies(iam_client, key: APIKey):
     try:
         policies = iam_client.list_attached_user_policies(UserName=key.username)['AttachedPolicies']
         if policies is not None:
-            for policy in policies:
-                if "AdministratorAccess" in policy["PolicyName"]:
-                    key.admin_priv = True
-                    key.useless = False
-                    break
+            if any("AWSCompromisedKeyQuarantine" in policy["PolicyName"] for policy in policies):
+                key.useless = True
+                key.useless_reasons.append('Quarantined Key')
+                return
 
-                policy_ver = iam_client.get_policy(PolicyArn=policy['PolicyArn'])['Policy']['DefaultVersionId']
-                policy_doc = iam_client.get_policy_version(PolicyArn=policy['PolicyArn'], VersionId=policy_ver)['PolicyVersion']['Document']
+            if any("AdministratorAccess" in policy["PolicyName"] for policy in policies):
+                key.admin_priv = True
+                key.useless = False
+            else:
+                for policy in policies:
+                    policy_ver = iam_client.get_policy(PolicyArn=policy['PolicyArn'])['Policy']['DefaultVersionId']
+                    policy_doc = iam_client.get_policy_version(PolicyArn=policy['PolicyArn'], VersionId=policy_ver)['PolicyVersion']['Document']
 
-                for statement in policy_doc['Statement']:
-                    if statement['Effect'] == 'Allow':
-                        if statement['Action'] == '*':
-                            key.admin_priv = True
-                            key.useless = False
-                        elif 'iam:CreateUser' in statement['Action']:
-                            key.useless = False
-                        continue
+                    for statement in policy_doc['Statement']:
+                        if statement['Effect'] == 'Allow':
+                            if statement['Action'] == '*':
+                                key.admin_priv = True
+                                key.useless = False
+                            elif 'iam:CreateUser' in statement['Action']:
+                                key.useless = False
+                            continue
 
-                # Admin keys will never expose this policy even if they are quarantined.
-                if "AWSCompromisedKeyQuarantine" in policy["PolicyName"] and not key.bedrock_enabled:
-                    key.useless = True
-                    key.useless_reasons.append('Quarantined Key')
-                    break
             return policies
     except botocore.exceptions.ClientError:
         if not key.bedrock_enabled:
