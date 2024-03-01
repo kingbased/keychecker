@@ -147,6 +147,7 @@ def validate_vertexai(key: APIKey):
 
 oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
+anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
 makersuite_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
@@ -167,8 +168,8 @@ async def validate_keys():
                 continue
             key_obj = APIKey(Provider.VERTEXAI, key)
             futures.append(executor.submit(validate_vertexai, key_obj))
-        elif "ant-api03" in key:
-            match = anthropic_regex.match(key)
+        elif "sk-ant-" in key[:7]:
+            match = anthropic_regex.match(key) if "ant-api03" in key else anthropic_secondary_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.ANTHROPIC, key)
