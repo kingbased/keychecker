@@ -173,6 +173,7 @@ def pretty_print_aws_keys(keys):
 
     if useless_keys:
         print(f"\nValidated {len(useless_keys)} AWS keys that are deemed useless and most likely s3 slop (can't be used to setup Bedrock/Claude)")
+        useless_keys = sorted(useless_keys, key=lambda x: 'Quarantined Key' not in x.useless_reasons)
         for key in useless_keys:
             print(f'{key.api_key}' + (f' | {key.username}' if key.username != "" else "")
                   + (f' | REASON - {key.useless_reasons}' if len(key.useless_reasons) > 0 else ''))
