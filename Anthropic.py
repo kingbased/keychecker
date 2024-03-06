@@ -21,6 +21,8 @@ async def check_anthropic(key: APIKey, session):
             return False
 
         text = await response.text()
+        if "This organization has been disabled" in text:
+            return
         key.pozzed = any(message in text for message in pozzed_messages)
 
         return True
