@@ -23,6 +23,10 @@ def check_aws(key: APIKey):
             session = boto3.Session(aws_access_key_id=access_key, aws_secret_access_key=secret)
             test_invoke_perms(session, key)
 
+            # retest with v3 in the case goons didn't enable v2
+            if not key.bedrock_enabled:
+                test_invoke_perms(session, key, "anthropic.claude-3-sonnet-20240229-v1:0")
+
             if key.useless:
                 key.useless_reasons.append('Failed Invoke Check')
 
@@ -50,7 +54,7 @@ def check_aws(key: APIKey):
         return
 
 
-def test_invoke_perms(session, key: APIKey):
+def test_invoke_perms(session, key: APIKey, model="anthropic.claude-v2"):
     data = {
         "prompt": "\n\nHuman:\n\nAssistant:",
         "max_tokens_to_sample": -1,
@@ -59,8 +63,7 @@ def test_invoke_perms(session, key: APIKey):
         bedrock_runtime_client = None
         try:
             bedrock_runtime_client = session.client("bedrock-runtime", region_name=region)
-            # v1 is not enabled in some regions where v2 is, proxies will report keys in these regions as logged and will by default ignore them despite them working fine for v2
-            bedrock_runtime_client.invoke_model(body=json.dumps(data), modelId="anthropic.claude-v2")
+            bedrock_runtime_client.invoke_model(body=json.dumps(data), modelId=model)
         except bedrock_runtime_client.exceptions.ValidationException as e:
             if 'max_tokens_to_sample' in e.response['Error']['Message']:
                 if key.region == "":

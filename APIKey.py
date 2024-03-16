@@ -18,6 +18,7 @@ class APIKey:
         elif provider == Provider.ANTHROPIC:
             self.pozzed = False
             self.rate_limited = False
+            self.has_quota = True
 
         elif provider == Provider.AI21:
             self.trial_elapsed = False

@@ -23,6 +23,10 @@ async def check_anthropic(key: APIKey, session):
         text = await response.text()
         if "This organization has been disabled" in text:
             return
+        elif "Your credit balance is too low to access the Claude API" in text:
+            key.has_quota = False
+            return True
+
         key.pozzed = any(message in text for message in pozzed_messages)
 
         return True
@@ -30,13 +34,17 @@ async def check_anthropic(key: APIKey, session):
 
 def pretty_print_anthropic_keys(keys):
     print('-' * 90)
-    pozzed = 0
-    rate_limited = 0
     print(f'Validated {len(keys)} working Anthropic keys:')
-    for key in keys:
-        if key.pozzed:
-            pozzed += 1
-        elif key.rate_limited:
-            rate_limited += 1
+    keys_with_quota = [key for key in keys if key.has_quota]
+    keys_without_quota = [key for key in keys if not key.has_quota]
+
+    pozzed = sum(key.pozzed for key in keys_with_quota)
+    rate_limited = sum(key.rate_limited for key in keys_with_quota)
+
+    print(f'Total keys with quota: {len(keys_with_quota)} (pozzed: {pozzed}, unpozzed: {len(keys_with_quota) - pozzed - rate_limited}, unsure/rate limited: {rate_limited})')
+    for key in keys_with_quota:
         print(f'{key.api_key}' + (' | pozzed' if key.pozzed else "") + (' | rate limited' if key.rate_limited else ""))
-    print(f'\n--- Total Valid Anthropic Keys: {len(keys)} ({pozzed} pozzed, {len(keys) - pozzed - rate_limited} unpozzed, {rate_limited} unsure/rate limited) ---\n')
+
+    print(f'\nTotal keys without quota: {len(keys_without_quota)}')
+    for key in keys_without_quota:
+        print(f'{key.api_key}')
