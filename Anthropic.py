@@ -41,10 +41,11 @@ def pretty_print_anthropic_keys(keys):
     pozzed = sum(key.pozzed for key in keys_with_quota)
     rate_limited = sum(key.rate_limited for key in keys_with_quota)
 
-    print(f'Total keys with quota: {len(keys_with_quota)} (pozzed: {pozzed}, unpozzed: {len(keys_with_quota) - pozzed - rate_limited}, unsure/rate limited: {rate_limited})')
+    print(f'\nTotal keys with quota: {len(keys_with_quota)} (pozzed: {pozzed}, unpozzed: {len(keys_with_quota) - pozzed - rate_limited}, unsure/rate limited: {rate_limited})')
     for key in keys_with_quota:
         print(f'{key.api_key}' + (' | pozzed' if key.pozzed else "") + (' | rate limited' if key.rate_limited else ""))
 
     print(f'\nTotal keys without quota: {len(keys_without_quota)}')
     for key in keys_without_quota:
         print(f'{key.api_key}')
+    print(f'\n--- Total Valid Anthropic Keys: {len(keys)} ({len(keys_with_quota)} with quota) ---\n')
