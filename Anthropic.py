@@ -45,7 +45,7 @@ async def check_anthropic(key: APIKey, session):
 
         #deduce tier by rpm header see; doc: https://docs.anthropic.com/claude/reference/rate-limits
         rpm_limit = int(response.headers.get('anthropic-ratelimit-requests-limit', 0))
-        key.trial = (rpm_limit in anthropic_tiers and anthropic_tiers[rpm_limit] == 'Trial Key')
+        key.trial = (rpm_limit in anthropic_tiers and anthropic_tiers[rpm_limit] == 'TRIAL KEY')
         key.tier = anthropic_tiers.get(rpm_limit, 'Scale')  #assume 'Scale' tier key when custom/unknown rpm
 
         return True
