@@ -1,13 +1,15 @@
 import APIKey
 
 #dict to align implementation w/ openai.py
-anthropic_tiers = {
-    5: 'TRIAL KEY',
-    50: 'Tier1',
-    1000: 'Tier2',
-    2000: 'Tier3',
-    4000: 'Tier4',
+#added tpm for scale / custom tier check
+rate_limits = {
+    'TRIAL KEY': {'rpm': 5, 'tpm': 25000},
+    'Build Tier 1': {'rpm': 50, 'tpm': 50000},
+    'Build Tier 2': {'rpm': 1000, 'tpm': 100000},
+    'Build Tier 3': {'rpm': 2000, 'tpm': 200000},
+    'Build Tier 4': {'rpm': 4000, 'tpm': 400000},
 }
+
 
 async def check_anthropic(key: APIKey, session):
     pozzed_messages = ["ethically", "copyrighted material"]
@@ -44,9 +46,18 @@ async def check_anthropic(key: APIKey, session):
         key.pozzed = any(pozzed_message in text for text in content_texts for pozzed_message in pozzed_messages)
 
         #deduce tier by rpm header see; doc: https://docs.anthropic.com/claude/reference/rate-limits
-        rpm_limit = int(response.headers.get('anthropic-ratelimit-requests-limit', 0))
-        key.trial = (rpm_limit in anthropic_tiers and anthropic_tiers[rpm_limit] == 'TRIAL KEY')
-        key.tier = anthropic_tiers.get(rpm_limit, 'Scale')  #assume 'Scale' tier key when custom/unknown rpm
+        #even if a key matches rpm, its possible its still a scale key 
+        #if rpm + tpm don't match the appropriate values, it's a scale (custom tier) key
+        rpm_limit = int(response.headers.get('anthropic-ratelimit-requests-limit', 0)) 
+        tpm_limit = int(response.headers.get('anthropic-ratelimit-tokens-limit', 0)) 
+        matched_tier = None
+        for tier_name, limits in rate_limits.items():
+            if rpm_limit == limits['rpm'] and tpm_limit == limits['tpm']:
+                matched_tier = tier_name
+                break
+        key.tier = matched_tier if matched_tier else 'Scale'
+
+        key.trial = (key.tier == 'TRIAL KEY')
 
         return True
 
