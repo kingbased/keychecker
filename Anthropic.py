@@ -71,7 +71,7 @@ def pretty_print_anthropic_keys(keys):
     for tier, keys_in_tier in keys_by_tier.items():
         print(f'\n{len(keys_in_tier)} keys found in {tier}:')
         for key in keys_in_tier:
-            print(f'{key.api_key}' + (' | pozzed' if key.pozzed else "") + (' | rate limited' if key.rate_limited else ""))
+            print(f'{key.api_key}' + (' | pozzed' if key.pozzed else "") + (' | rate limited' if key.rate_limited else "") + (' | remaining tokens: ' + str(key.remaining_tokens) if key.remaining_tokens else ""))
 
     print(f'\nTotal keys without quota: {len(keys_without_quota)}')
     for key in keys_without_quota:
