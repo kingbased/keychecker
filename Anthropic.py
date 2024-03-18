@@ -1,5 +1,6 @@
 import APIKey
 
+
 async def check_anthropic(key: APIKey, session):
     pozzed_messages = ["ethically", "copyrighted material"]
     headers = {
@@ -47,15 +48,17 @@ async def check_anthropic(key: APIKey, session):
 
         return True
 
+
 def get_tier(tokenlimit, ratelimit):
     tier_mapping = {
-        (25000, 5): "Free",
+        (25000, 5): "Free Tier",
         (50000, 50): "Tier 1",
         (100000, 1000): "Tier 2",
         (200000, 2000): "Tier 3",
         (400000, 4000): "Tier 4"
     }
     return tier_mapping.get((tokenlimit, ratelimit), "Scale Tier")
+
 
 def pretty_print_anthropic_keys(keys):
     print('-' * 90)
