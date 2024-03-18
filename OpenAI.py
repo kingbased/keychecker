@@ -6,14 +6,21 @@ oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
 oai_tiers = {40000: 'Free', 60000: 'Tier1', 80000: 'Tier2', 160000: 'Tier3', 1000000: 'Tier4', 2000000: 'Tier5'}
 
 
-async def get_oai_model(key: APIKey, session, retries):
+async def get_oai_model(key: APIKey, session, retries, org=None):
     for _ in range(retries):
-        async with session.get(f'{oai_api_url}/models', headers={'Authorization': f'Bearer {key.api_key}'}) as response:
+        headers = {'Authorization': f'Bearer {key.api_key}'}
+        if org is not None:
+            headers['OpenAI-Organization'] = org
+        async with session.get(f'{oai_api_url}/models', headers=headers) as response:
             if response.status == 200:
                 data = await response.json()
                 models = data["data"]
                 top_model = "gpt-3.5-turbo"
                 for model in models:
+                    if "ft:" in model["id"]:
+                        key.has_special_models = True
+                    if model["id"] == "gpt-4-base":
+                        key.the_one = True
                     if model["id"] == "gpt-4-32k":
                         top_model = model["id"]
                         break
@@ -26,12 +33,13 @@ async def get_oai_model(key: APIKey, session, retries):
         await asyncio.sleep(0.5)
 
 
-async def get_oai_key_attribs(key: APIKey, session, retries):
+async def get_oai_key_attribs(key: APIKey, session, retries, org=None):
     chat_object = {"model": f'{key.model}', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
     for _ in range(retries):
-        async with session.post(f'{oai_api_url}/chat/completions',
-                                headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                                json=chat_object) as response:
+        headers = {'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'}
+        if org is not None:
+            headers['OpenAI-Organization'] = org
+        async with session.post(f'{oai_api_url}/chat/completions', headers=headers, json=chat_object) as response:
             if response.status in [400, 429]:
                 data = await response.json()
                 message = data["error"]["type"]
@@ -57,14 +65,15 @@ async def get_oai_key_attribs(key: APIKey, session, retries):
 
 
 # this will weed out fake t4/t5 keys reporting a 10k rpm limit, those keys would have requested to have their rpm increased
-async def get_oai_key_tier(key: APIKey, session, retries):
+async def get_oai_key_tier(key: APIKey, session, retries, org=None):
     if key.trial:
         return 'Free'
     chat_object = {"model": f'gpt-3.5-turbo', "messages": [{"role": "user", "content": ""}], "max_tokens": 0}
     for _ in range(retries):
-        async with session.post(f'{oai_api_url}/chat/completions',
-                                headers={'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'},
-                                json=chat_object) as response:
+        headers = {'Authorization': f'Bearer {key.api_key}', 'accept': 'application/json'}
+        if org is not None:
+            headers['OpenAI-Organization'] = org
+        async with session.post(f'{oai_api_url}/chat/completions', headers=headers, json=chat_object) as response:
             if response.status in [400, 429]:
                 try:
                     return oai_tiers[int(response.headers.get("x-ratelimit-limit-tokens"))]
@@ -94,6 +103,22 @@ async def get_oai_org(key: APIKey, session, retries):
         await asyncio.sleep(0.5)
 
 
+async def clone_key(key: APIKey, session, retries):
+    cloned_keys = set()
+    if len(key.organizations) <= 1:
+        return False
+    for org in key.organizations:
+        if org == key.default_org:
+            continue
+        new_key = key.clone()
+        new_key.default_org = org
+        results = await asyncio.gather(get_oai_model(new_key, session, retries, org), get_oai_key_attribs(new_key, session, retries, org))
+        model_result, attribs_result = results
+        if model_result is not None and attribs_result is not None:
+            cloned_keys.add(new_key)
+    return cloned_keys
+
+
 def check_manual_increase(key: APIKey):
     if key.model == 'gpt-3.5-turbo' and key.rpm > 3500:
         return True
@@ -106,7 +131,7 @@ def check_manual_increase(key: APIKey):
     return False
 
 
-def pretty_print_oai_keys(keys):
+def pretty_print_oai_keys(keys, cloned_keys):
     print('-' * 90)
     org_count = 0
     quota_count = 0
@@ -162,13 +187,15 @@ def pretty_print_oai_keys(keys):
               + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
               + f" | {key.rpm} RPM" + (f" - {key.tier}" if key.tier else "")
               + (" (RPM increased via request)" if check_manual_increase(key) else "")
-              + (f" | TRIAL KEY" if key.trial else ""))
+              + (f" | TRIAL KEY" if key.trial else "")
+              + (f" | key has finetuned models" if key.has_special_models else ""))
 
     print(f'\nValidated {len(key_groups["gpt-4"]["no_quota"])} gpt-4 keys with no quota:')
     for key in key_groups["gpt-4"]["no_quota"]:
         print(f"{key.api_key}"
               + (f" | default org - {key.default_org}" if key.default_org else "")
-              + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else ""))
+              + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
+              + (f" | key has finetuned models" if key.has_special_models else ""))
 
     print(f'\nValidated {len(key_groups["gpt-4-32k"]["has_quota"])} gpt-4-32k keys with quota:')
     for key in key_groups["gpt-4-32k"]["has_quota"]:
@@ -177,12 +204,18 @@ def pretty_print_oai_keys(keys):
               + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
               + f" | {key.rpm} RPM" + (f" - {key.tier}" if key.tier else "")
               + (" (RPM increased via request)" if check_manual_increase(key) else "")
-              + (f" | TRIAL KEY" if key.trial else ""))
+              + (f" | TRIAL KEY" if key.trial else "")
+              + (f" | key has finetuned models" if key.has_special_models else "")
+              + (f" | !!!god key!!!" if key.the_one else ""))
 
     print(f'\nValidated {len(key_groups["gpt-4-32k"]["no_quota"])} gpt-4-32k keys with no quota:')
     for key in key_groups["gpt-4-32k"]["no_quota"]:
         print(f"{key.api_key}"
               + (f" | default org - {key.default_org}" if key.default_org else "")
-              + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else ""))
+              + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
+              + (f" | key has finetuned models" if key.has_special_models else "")
+              + (f" | !!!god key!!!" if key.the_one else ""))
 
+    if cloned_keys:
+        print(f'\n--- Cloned {len(cloned_keys)} keys due to finding alternative orgs that could prompt ---')
     print(f'\n--- Total Valid OpenAI Keys: {len(keys)} ({quota_count} in quota, {no_quota_count} no quota, {org_count} orgs, {t5_count} Tier5) ---\n')

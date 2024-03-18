@@ -1,6 +1,6 @@
 from Anthropic import check_anthropic, pretty_print_anthropic_keys
 from IO import IO
-from OpenAI import get_oai_model, get_oai_key_attribs, get_oai_org, pretty_print_oai_keys
+from OpenAI import get_oai_model, get_oai_key_attribs, get_oai_org, pretty_print_oai_keys, clone_key
 from AI21 import check_ai21, pretty_print_ai21_keys
 from MakerSuite import check_makersuite, pretty_print_makersuite_keys
 from AWS import check_aws, pretty_print_aws_keys
@@ -49,6 +49,8 @@ else:
         inputted_keys.add(current_line.strip().split()[0].split(",")[0])
 
 
+# hold on let me land
+cloned_keys = None
 async def validate_openai(key: APIKey, sem):
     retries = 10
     async with sem, aiohttp.ClientSession() as session:
@@ -62,6 +64,11 @@ async def validate_openai(key: APIKey, sem):
             return
         IO.conditional_print(f"OpenAI key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
+        global cloned_keys
+        cloned_keys = await clone_key(key, session, retries)
+        if cloned_keys:
+            IO.conditional_print(f"Cloned OpenAI key '{key.api_key}'", args.verbose)
+            api_keys.update(cloned_keys)
 
 
 async def validate_anthropic(key: APIKey, retry_count, sem):
@@ -232,7 +239,8 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
     valid_openrouter_keys_set = set([key.api_key for key in valid_openrouter_keys])
 
     invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set - valid_mistral_keys_set - valid_openrouter_keys_set
-    if len(invalid_keys) < 1:
+    invalid_keys_len = len(invalid_keys) + len(cloned_keys) if cloned_keys else len(invalid_keys)
+    if invalid_keys_len < 1:
         return
     print('\nInvalid Keys:')
     for key in invalid_keys:
@@ -276,14 +284,15 @@ def output_keys():
         sys.stdout = IO(output_filename)
 
     if not args.proxyoutput:
+        invalid_keys = len(inputted_keys) - len(api_keys) + len(cloned_keys) if cloned_keys else len(inputted_keys) - len(api_keys)
         print("#" * 90)
         print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("#" * 90)
-        print(f'\n--- Checked {len(inputted_keys)} keys | {len(inputted_keys) - len(api_keys)} were invalid ---')
+        print(f'\n--- Checked {len(inputted_keys)} keys | {invalid_keys} were invalid ---')
         get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys)
         print()
         if valid_oai_keys:
-            pretty_print_oai_keys(valid_oai_keys)
+            pretty_print_oai_keys(valid_oai_keys, cloned_keys)
         if valid_anthropic_keys:
             pretty_print_anthropic_keys(valid_anthropic_keys)
         if valid_ai21_keys:

@@ -14,11 +14,15 @@ class APIKey:
             self.organizations = []
             self.rpm = 0
             self.tier = ""
+            self.has_special_models = False
+            self.the_one = False
 
         elif provider == Provider.ANTHROPIC:
             self.pozzed = False
             self.rate_limited = False
             self.has_quota = True
+            self.tier = ""
+            self.remaining_tokens = 0
 
         elif provider == Provider.AI21:
             self.trial_elapsed = False
@@ -56,6 +60,12 @@ class APIKey:
             self.balance = 0
             self.limit_reached = False
             self.bought_credits = False
+
+    def clone(self):
+        cloned_key = APIKey(self.provider, self.api_key)
+        cloned_key.__dict__ = self.__dict__.copy()
+        return cloned_key
+
 
 class Provider(Enum):
     OPENAI = 1,
