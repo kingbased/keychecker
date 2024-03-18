@@ -27,9 +27,29 @@ async def check_anthropic(key: APIKey, session):
             key.has_quota = False
             return True
 
+        try:
+            key.remaining_tokens = int(response.headers['anthropic-ratelimit-tokens-remaining'])
+            tokenlimit = int(response.headers['anthropic-ratelimit-tokens-limit'])
+            ratelimit = int(response.headers['anthropic-ratelimit-requests-limit'])
+            key.tier = get_tier(tokenlimit, ratelimit)
+        except KeyError:
+            key.tier = "Evaluation Tier"
+            key.remaining_tokens = 2500000
+
         key.pozzed = any(message in text for message in pozzed_messages)
 
         return True
+
+
+def get_tier(tokenlimit, ratelimit):
+    tier_mapping = {
+        (25000, 5): "Free",
+        (50000, 50): "Tier 1",
+        (100000, 1000): "Tier 2",
+        (200000, 2000): "Tier 3",
+        (400000, 4000): "Tier 4"
+    }
+    return tier_mapping.get((tokenlimit, ratelimit), "Scale Tier")
 
 
 def pretty_print_anthropic_keys(keys):
@@ -42,8 +62,16 @@ def pretty_print_anthropic_keys(keys):
     rate_limited = sum(key.rate_limited for key in keys_with_quota)
 
     print(f'\nTotal keys with quota: {len(keys_with_quota)} (pozzed: {pozzed}, unpozzed: {len(keys_with_quota) - pozzed - rate_limited}, unsure/rate limited: {rate_limited})')
+    keys_by_tier = {}
     for key in keys_with_quota:
-        print(f'{key.api_key}' + (' | pozzed' if key.pozzed else "") + (' | rate limited' if key.rate_limited else ""))
+        if key.tier not in keys_by_tier:
+            keys_by_tier[key.tier] = []
+        keys_by_tier[key.tier].append(key)
+
+    for tier, keys_in_tier in keys_by_tier.items():
+        print(f'\n{len(keys_in_tier)} keys found in {tier}:')
+        for key in keys_in_tier:
+            print(f'{key.api_key}' + (' | pozzed' if key.pozzed else "") + (' | rate limited' if key.rate_limited else ""))
 
     print(f'\nTotal keys without quota: {len(keys_without_quota)}')
     for key in keys_without_quota:
