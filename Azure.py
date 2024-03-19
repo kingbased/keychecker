@@ -10,6 +10,8 @@ def check_azure(key: APIKey):
     if deployments is None:
         return
 
+    # deal with dall-e separately
+    key.dalle_deployments = [deployment['id'] for deployment in deployments if deployment['model'] == 'dall-e-3']
     key.deployments = [(deployment['id'], deployment['model'], test_deployment(key, api_key, deployment['id'])) for deployment in deployments if deployment['model'].startswith('gpt')]
 
     if key.deployments is None or not key.deployments:
@@ -72,6 +74,7 @@ def pretty_print_azure_keys(keys):
     print('-' * 90)
     print(f'Validated {len(keys)} Azure keys:')
     unfiltered = 0
+    keys = sorted(keys, key=lambda x: (x.unfiltered, bool(x.dalle_deployments)), reverse=True)
     for key in keys:
         if key.unfiltered:
             unfiltered += 1
@@ -79,10 +82,11 @@ def pretty_print_azure_keys(keys):
                       + f' | best deployment - {key.best_deployment}'
                       + f' | top model - {key.model}')
         if key.deployments:
-            key_string += ' | other deployments - ['
+            key_string += ' | other chat deployments - ['
             for deployment_id, model, filter_status in key.deployments:
                 key_string += (f"'{deployment_id}'" + (' - unfiltered' if filter_status else '') + ', ')
             key_string = key_string.rstrip(', ') + ']'
         key_string += (' | !!!UNFILTERED!!!' if key.unfiltered else '')
+        key_string += (f' | dall-e 3 deployments found on - {key.dalle_deployments}' if key.dalle_deployments else '')
         print(key_string)
     print(f'\n--- Total Valid Azure Keys: {len(keys)} ({unfiltered} unfiltered) ---\n')

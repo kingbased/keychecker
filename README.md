@@ -4,14 +4,15 @@ a fast, bulk key checker for various AI services
 Currently supports and validates keys for the services below, and checks for the listed attributes a key might have:
 
 - OpenAI - (Best model, key in quota, RPM (catches increase requests), tier, list of organizations if applicable, trial key status)
-- Anthropic - (Pozzed and quotaless check)
+- Anthropic - (Pozzed status and key tier, along with remaining character quota)
 - AI21 - (Trial check)
 - Google MakerSuite (Gemini)
 - AWS - (Admin status, auto-fetch the region, logging status, username, bedrock status)
-- Azure - (Auto-fetch all deployments, auto-fetch best deployment/model, filter status)
+- Azure - (Auto-fetch all deployments, auto-fetch best deployment/model, filter status, dall-e deployment)
 - Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly. Good luck scraping for those.)
 - MistralAI - (Subscription status)
 - OpenRouter - (Estimated balance, usage in $, credit limit, RPM, has purchased any credits)
+- ElevenLabs - (Key tier, remaining characters in plan, detect uncapped char quota, pro voice cloning limit, invoice details on pay as you go plans)
 
 Always open to adding more services, although I think I've covered all the ones people care about. Nonetheless, feel free to open an issue or PR if you want something else added.
 

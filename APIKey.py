@@ -43,6 +43,7 @@ class APIKey:
             self.model = ""
             self.deployments = []
             self.unfiltered = False
+            self.dalle_deployments = ""
 
         elif provider == Provider.VERTEXAI:
             self.project_id = ""
@@ -61,6 +62,13 @@ class APIKey:
             self.limit_reached = False
             self.bought_credits = False
 
+        elif provider == Provider.ELEVENLABS:
+            self.characters_left = 0
+            self.usage = ""
+            self.tier = ""
+            self.unlimited = False
+            self.pro_voice_limit = 0
+
     def clone(self):
         cloned_key = APIKey(self.provider, self.api_key)
         cloned_key.__dict__ = self.__dict__.copy()
@@ -77,3 +85,4 @@ class Provider(Enum):
     VERTEXAI = 7
     MISTRAL = 8
     OPENROUTER = 9
+    ELEVENLABS = 10

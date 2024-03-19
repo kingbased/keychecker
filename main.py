@@ -8,6 +8,7 @@ from Azure import check_azure, pretty_print_azure_keys
 from VertexAI import check_vertexai, pretty_print_vertexai_keys
 from Mistral import check_mistral, pretty_print_mistral_keys
 from OpenRouter import check_openrouter, pretty_print_openrouter_keys
+from ElevenLabs import check_elevenlabs, pretty_print_elevenlabs_keys
 
 from APIKey import APIKey, Provider
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -117,11 +118,21 @@ async def validate_makersuite(key: APIKey, sem):
 
 async def validate_openrouter(key: APIKey, sem):
     async with sem, aiohttp.ClientSession() as session:
-        IO.conditional_print(f"Checking OpenRouter: {key.api_key}", args.verbose)
+        IO.conditional_print(f"Checking OpenRouter key: {key.api_key}", args.verbose)
         if await check_openrouter(key, session) is None:
             IO.conditional_print(f"Invalid OpenRouter key: {key.api_key}", args.verbose)
             return
         IO.conditional_print(f"OpenRouter key '{key.api_key}' is valid", args.verbose)
+        api_keys.add(key)
+
+
+async def validate_elevenlabs(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking ElevenLabs key: {key.api_key}", args.verbose)
+        if await check_elevenlabs(key, session) is None:
+            IO.conditional_print(f"Invalid ElevenLabs key: {key.api_key}", args.verbose)
+            return
+        IO.conditional_print(f"ElevenLabs key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
 
 
@@ -156,6 +167,7 @@ oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
+elevenlabs_regex = re.compile(r'([a-z0-9]{32})')
 makersuite_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
 azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
@@ -212,11 +224,16 @@ async def validate_keys():
             key_obj = APIKey(Provider.AZURE, key)
             futures.append(executor.submit(validate_azure, key_obj))
         else:
-            match = ai21_and_mistral_regex.match(key)
+            match = elevenlabs_regex.match(key)
             if not match:
-                continue
-            key_obj = APIKey(Provider.AI21, key)
-            tasks.append(validate_ai21_and_mistral(key_obj, concurrent_connections))
+                match = ai21_and_mistral_regex.match(key)
+                if not match:
+                    continue
+                key_obj = APIKey(Provider.AI21, key)
+                tasks.append(validate_ai21_and_mistral(key_obj, concurrent_connections))
+            else:
+                key_obj = APIKey(Provider.ELEVENLABS, key)
+                tasks.append(validate_elevenlabs(key_obj, concurrent_connections))
     results = await asyncio.gather(*tasks)
     for result in results:
         if result is not None:
@@ -227,7 +244,7 @@ async def validate_keys():
     futures.clear()
 
 
-def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys):
+def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys, valid_elevenlabs_keys):
     valid_oai_keys_set = set([key.api_key for key in valid_oai_keys])
     valid_anthropic_keys_set = set([key.api_key for key in valid_anthropic_keys])
     valid_ai21_keys_set = set([key.api_key for key in valid_ai21_keys])
@@ -237,8 +254,9 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
     valid_vertexai_keys_set = set([key.api_key for key in valid_vertexai_keys])
     valid_mistral_keys_set = set([key.api_key for key in valid_mistral_keys])
     valid_openrouter_keys_set = set([key.api_key for key in valid_openrouter_keys])
+    valid_elevenlabs_set = set([key.api_key for key in valid_elevenlabs_keys])
 
-    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set - valid_mistral_keys_set - valid_openrouter_keys_set
+    invalid_keys = inputted_keys - valid_oai_keys_set - valid_anthropic_keys_set - valid_ai21_keys_set - valid_makersuite_keys_set - valid_aws_keys_set - valid_azure_keys_set - valid_vertexai_keys_set - valid_mistral_keys_set - valid_openrouter_keys_set - valid_elevenlabs_set
     invalid_keys_len = len(invalid_keys) + len(cloned_keys) if cloned_keys else len(invalid_keys)
     if invalid_keys_len < 1:
         return
@@ -259,6 +277,7 @@ def output_keys():
     valid_vertexai_keys = []
     valid_mistral_keys = []
     valid_openrouter_keys = []
+    valid_elevenlabs_keys = []
 
     for key in api_keys:
         if key.provider == Provider.OPENAI:
@@ -279,6 +298,9 @@ def output_keys():
             valid_mistral_keys.append(key)
         elif key.provider == Provider.OPENROUTER:
             valid_openrouter_keys.append(key)
+        elif key.provider == Provider.ELEVENLABS:
+            valid_elevenlabs_keys.append(key)
+
     if should_write:
         output_filename = "key_snapshots.txt"
         sys.stdout = IO(output_filename)
@@ -289,7 +311,7 @@ def output_keys():
         print(f"Key snapshot from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("#" * 90)
         print(f'\n--- Checked {len(inputted_keys)} keys | {invalid_keys} were invalid ---')
-        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys)
+        get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, valid_makersuite_keys, valid_aws_keys, valid_azure_keys, valid_vertexai_keys, valid_mistral_keys, valid_openrouter_keys, valid_elevenlabs_keys)
         print()
         if valid_oai_keys:
             pretty_print_oai_keys(valid_oai_keys, cloned_keys)
@@ -309,6 +331,8 @@ def output_keys():
             pretty_print_mistral_keys(valid_mistral_keys)
         if valid_openrouter_keys:
             pretty_print_openrouter_keys(valid_openrouter_keys)
+        if valid_elevenlabs_keys:
+            pretty_print_elevenlabs_keys(valid_elevenlabs_keys)
     else:
         # ai21, openrouter and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
         print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
