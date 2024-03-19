@@ -51,7 +51,7 @@ else:
 
 
 # hold on let me land
-cloned_keys = None
+cloned_keys = set()
 async def validate_openai(key: APIKey, sem):
     retries = 10
     async with sem, aiohttp.ClientSession() as session:
@@ -66,7 +66,9 @@ async def validate_openai(key: APIKey, sem):
         IO.conditional_print(f"OpenAI key '{key.api_key}' is valid", args.verbose)
         api_keys.add(key)
         global cloned_keys
-        cloned_keys = await clone_key(key, session, retries)
+        cloner = await clone_key(key, session, retries)
+        if cloner:
+            cloned_keys.update(cloner)
         if cloned_keys:
             IO.conditional_print(f"Cloned OpenAI key '{key.api_key}'", args.verbose)
             api_keys.update(cloned_keys)
