@@ -8,7 +8,7 @@ async def check_makersuite(key: APIKey, session):
         if response.status != 200:
             return
         response_json = await response.json()
-        model_names = [model['name'].replace('models/', '') for model in response_json['models']]
+        model_names = [model['name'].replace('models/', '').replace('-latest', '') for model in response_json['models']]
         for model in gemini_models:
             if model in model_names:
                 key.models.append(model)
