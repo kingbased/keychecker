@@ -50,12 +50,13 @@ async def check_anthropic(key: APIKey, session):
 
 
 def get_tier(tokenlimit, ratelimit):
+    # if they change it again i'll stop checking for tpm.
     tier_mapping = {
         (20000, 5): "Free Tier",
         (40000, 50): "Tier 1",
         (80000, 1000): "Tier 2",
         (160000, 2000): "Tier 3",
-        (320000, 4000): "Tier 4"
+        (400000, 4000): "Tier 4"
     }
     return tier_mapping.get((tokenlimit, ratelimit), "Scale Tier")
 
