@@ -4,17 +4,16 @@ import APIKey
 import botocore.exceptions
 
 
-# us-gov-west-1 is also a supported bedrock region but needs an additional security token
 aws_regions = [
     "us-east-1",
     "us-west-2",
-    "ap-southeast-1",
-    "ap-northeast-1",
-    "eu-central-1",
+    "ap-southeast-2",
+    "ap-south-1",
+    "eu-west-3",
 ]
 
 
-def check_aws(key: APIKey):
+def check_aws(key: APIKey, list_models):
     line = key.api_key.split(":")
     access_key = line[0]
     secret = line[1]
@@ -45,6 +44,9 @@ def check_aws(key: APIKey):
 
         if not key.useless and key.bedrock_enabled:
             check_logging(session, key)
+            if list_models:
+                print("Generating model map for key: " + key.api_key + " (may take a while)")
+                retrieve_activated_models(session, key)
         elif key.useless and policies is not None:
             key.useless_reasons.append('Key policies lack Admin or User Creation perms')
         return True
@@ -142,6 +144,56 @@ def check_logging(session, key: APIKey):
         return
 
 
+def retrieve_models(session, region):
+    try:
+        bedrock_client = session.client("bedrock", region_name=region)
+        response = bedrock_client.list_foundation_models()
+        models = response["modelSummaries"]
+
+        model_providers = ["Meta", "Anthropic", "Mistral AI"]
+        model_info = []
+
+        for model in models:
+            provider_name = model["providerName"]
+            model_id = model["modelId"]
+            model_name = model["modelName"]
+
+            if provider_name in model_providers or (provider_name == "Cohere" and ("Command R+" in model_name or "Command R" in model_name)):
+                parts = model_id.split(":")
+                if len(parts) <= 2:
+                    model_info.append((model_id, model_name))
+
+        return model_info
+
+    except botocore.exceptions.ClientError:
+        return
+
+
+def retrieve_activated_models(session, key: APIKey):
+    data = {
+        "prompt": "\n\nHuman:\n\nAssistant:",
+        "max_tokens_to_sample": -1,
+    }
+    for region in aws_regions:
+        if region not in key.models:
+            key.models[region] = []
+        listed_models = retrieve_models(session, region)
+        for model in listed_models:
+            model_id, model_name = model
+            bedrock_runtime_client = None
+            try:
+                bedrock_runtime_client = session.client("bedrock-runtime", region_name=region)
+                bedrock_runtime_client.invoke_model(body=json.dumps(data), modelId=model_id)
+            except bedrock_runtime_client.exceptions.ValidationException as e:
+                if 'max_tokens_to_sample' in e.response['Error']['Message']:
+                    key.models[region].append(model_name)
+                continue
+            except bedrock_runtime_client.exceptions.AccessDeniedException:
+                continue
+            except bedrock_runtime_client.exceptions.ResourceNotFoundException:
+                continue
+
+
 def pretty_print_aws_keys(keys):
     print('-' * 90)
     admin_count = 0
@@ -167,7 +219,9 @@ def pretty_print_aws_keys(keys):
                   (' | admin key' if key.admin_priv else "") + (f' | {key.region}' if key.region != "" else "") +
                   (f' | alt regions - {key.alt_regions}' if key.alt_regions else "") +
                   (' | LOGGED KEY' if key.logged is True else ""))
-
+            if key.models:
+                print("Model Map - " + str(key.models))
+                print()
     if needs_setup_keys:
         print(f"\nValidated {len(needs_setup_keys)} AWS keys that failed to invoke Claude and need further permissions setup.")
         for key in needs_setup_keys:

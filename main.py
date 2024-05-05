@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('-proxyoutput', '--proxyoutput', action='store_true', help='proxy format output for easy copying')
     parser.add_argument('-file', '--file', action='store', dest='file', help='read slop from a provided filename')
     parser.add_argument('-verbose', '--verbose', action='store_true', help='watch as your slop is checked real time')
+    parser.add_argument('-awsmodels', '--awsmodels', action='store_true', help='output activated aws models for a key (warning: slow)')
     return parser.parse_args()
 
 
@@ -140,7 +141,7 @@ async def validate_elevenlabs(key: APIKey, sem):
 
 def validate_aws(key: APIKey):
     IO.conditional_print(f"Checking AWS key: {key.api_key}", args.verbose)
-    if check_aws(key) is None:
+    if check_aws(key, args.awsmodels) is None:
         IO.conditional_print(f"Invalid AWS key: {key.api_key}", args.verbose)
         return
     IO.conditional_print(f"AWS key '{key.api_key}' is valid", args.verbose)
@@ -166,6 +167,7 @@ def validate_vertexai(key: APIKey):
 
 
 oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
+oai_secondary_regex = re.compile('(sk-proj-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
@@ -208,7 +210,7 @@ async def validate_keys():
             key_obj = APIKey(Provider.OPENROUTER, key)
             tasks.append(validate_openrouter(key_obj, concurrent_connections))
         elif "sk-" in key:
-            match = oai_regex.match(key)
+            match = oai_secondary_regex.match(key) if "-proj-" in key else oai_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.OPENAI, key)

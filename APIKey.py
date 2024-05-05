@@ -36,6 +36,7 @@ class APIKey:
             self.alt_regions = []
             self.useless_reasons = []
             self.logged = False
+            self.models = {}
 
         elif provider == Provider.AZURE:
             self.endpoint = ""
@@ -44,6 +45,7 @@ class APIKey:
             self.deployments = []
             self.unfiltered = False
             self.dalle_deployments = ""
+            self.has_gpt4_turbo = []
 
         elif provider == Provider.VERTEXAI:
             self.project_id = ""
