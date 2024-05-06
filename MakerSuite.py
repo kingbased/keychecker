@@ -17,9 +17,11 @@ async def check_makersuite(key: APIKey, session):
 
 def pretty_print_makersuite_keys(keys):
     model_counts = {model: [] for model in gemini_models}
+    total = 0
     for key in keys:
         for model in key.models:
             model_counts[model].append(key.api_key)
+        total += 1
 
     print('-' * 90)
     print(f'Validated {len(keys)} MakerSuite keys:')
@@ -27,4 +29,4 @@ def pretty_print_makersuite_keys(keys):
         print(f'\n{len(keys)} keys with model {model}:')
         for key in keys:
             print(f'{key}')
-    print(f'\n--- Total Valid MakerSuite Keys: {len(keys)} ---\n')
+    print(f'\n--- Total Valid MakerSuite Keys: {total} ---\n')
