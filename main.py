@@ -19,6 +19,7 @@ import argparse
 import os.path
 import asyncio
 import aiohttp
+import AWSAsync
 
 api_keys = set()
 
@@ -30,6 +31,7 @@ def parse_args():
     parser.add_argument('-file', '--file', action='store', dest='file', help='read slop from a provided filename')
     parser.add_argument('-verbose', '--verbose', action='store_true', help='watch as your slop is checked real time')
     parser.add_argument('-awsmodels', '--awsmodels', action='store_true', help='output activated aws models for a key (warning: slow)')
+    parser.add_argument('-awsasync', '--awsasync', action='store_true', help='use the AWS REST API for checking keys instead of boto3 (way faster but not as well tested, -awsmodels autoapplies here due to the speedup)')
     return parser.parse_args()
 
 
@@ -148,6 +150,16 @@ def validate_aws(key: APIKey):
     api_keys.add(key)
 
 
+async def validate_aws_async(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking AWS key asynchronously: {key.api_key}", args.verbose)
+        if await AWSAsync.check_aws(key, session) is None:
+            IO.conditional_print(f"Invalid AWS key: {key.api_key}", args.verbose)
+            return
+        IO.conditional_print(f"AWS key '{key.api_key}' is valid", args.verbose)
+        api_keys.add(key)
+
+
 def validate_azure(key: APIKey):
     IO.conditional_print(f"Checking Azure key: {key.api_key}", args.verbose)
     if check_azure(key) is None:
@@ -220,7 +232,10 @@ async def validate_keys():
             if not match:
                 continue
             key_obj = APIKey(Provider.AWS, key)
-            futures.append(executor.submit(validate_aws, key_obj))
+            if args.awsasync:
+                tasks.append(validate_aws_async(key_obj, concurrent_connections))
+            else:
+                futures.append(executor.submit(validate_aws, key_obj))
         elif ":" in key and "AKIA" not in key:
             match = azure_regex.match(key)
             if not match:
