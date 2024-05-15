@@ -61,11 +61,12 @@ async def test_invoke_perms(key: APIKey, session, model):
         signed_headers, signed_data = await sign_request(key, region, 'POST', url, headers, data, 'bedrock')
         async with session.post(url, headers=signed_headers, data=signed_data) as response:
             resp = await response.json()
+            message = resp.get('message')
             if response.status == 403:
-                if resp['message'] and 'The request signature we calculated does not match the signature you provided' in resp['message'] or 'The security token included in the request is invalid' in resp['message']:
+                if message and ('The request signature we calculated does not match the signature you provided' in message or 'The security token included in the request is invalid' in message):
                     return False
             elif response.status == 400 or response.status == 404:
-                if resp['message'] and 'Malformed input request' in resp['message']:
+                if message and 'Malformed input request' in message:
                     if key.region == "":
                         key.region = region
                     else:
