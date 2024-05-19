@@ -2,7 +2,7 @@ import APIKey
 import asyncio
 
 oai_api_url = "https://api.openai.com/v1"
-oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k": 20}
+oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k-0314": 20}
 oai_tiers = {40000: 'Free', 60000: 'Tier1', 80000: 'Tier2', 160000: 'Tier3', 1000000: 'Tier4', 2000000: 'Tier5'}
 
 
@@ -22,8 +22,9 @@ async def get_oai_model(key: APIKey, session, retries, org=None):
                     if model["id"] == "gpt-4-base":
                         key.the_one = True
                     if model["id"] == "gpt-4-32k":
+                        key.real_32k = True
+                    if model["id"] == "gpt-4-32k-0314":
                         top_model = model["id"]
-                        break
                     elif model["id"] == "gpt-4":
                         top_model = model["id"]
                 key.model = top_model
@@ -147,7 +148,7 @@ def pretty_print_oai_keys(keys, cloned_keys):
             "has_quota": [],
             "no_quota": []
         },
-        "gpt-4-32k": {
+        "gpt-4-32k-0314": {
             "has_quota": [],
             "no_quota": []
         }
@@ -197,8 +198,8 @@ def pretty_print_oai_keys(keys, cloned_keys):
               + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
               + (f" | key has finetuned models" if key.has_special_models else ""))
 
-    print(f'\nValidated {len(key_groups["gpt-4-32k"]["has_quota"])} gpt-4-32k keys with quota:')
-    for key in key_groups["gpt-4-32k"]["has_quota"]:
+    print(f'\nValidated {len(key_groups["gpt-4-32k-0314"]["has_quota"])} gpt-4-32k keys with quota:')
+    for key in key_groups["gpt-4-32k-0314"]["has_quota"]:
         print(f"{key.api_key}"
               + (f" | default org - {key.default_org}" if key.default_org else "")
               + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
@@ -206,14 +207,16 @@ def pretty_print_oai_keys(keys, cloned_keys):
               + (" (RPM increased via request)" if check_manual_increase(key) else "")
               + (f" | TRIAL KEY" if key.trial else "")
               + (f" | key has finetuned models" if key.has_special_models else "")
+              + (f" | real 32k key (pre deprecation)" if key.real_32k else "")
               + (f" | !!!god key!!!" if key.the_one else ""))
 
-    print(f'\nValidated {len(key_groups["gpt-4-32k"]["no_quota"])} gpt-4-32k keys with no quota:')
-    for key in key_groups["gpt-4-32k"]["no_quota"]:
+    print(f'\nValidated {len(key_groups["gpt-4-32k-0314"]["no_quota"])} gpt-4-32k keys with no quota:')
+    for key in key_groups["gpt-4-32k-0314"]["no_quota"]:
         print(f"{key.api_key}"
               + (f" | default org - {key.default_org}" if key.default_org else "")
               + (f" | other orgs - {key.organizations}" if len(key.organizations) > 1 else "")
               + (f" | key has finetuned models" if key.has_special_models else "")
+              + (f" | real 32k key (pre deprecation)" if key.real_32k else "")
               + (f" | !!!god key!!!" if key.the_one else ""))
 
     if cloned_keys:

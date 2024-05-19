@@ -15,6 +15,7 @@ class APIKey:
             self.rpm = 0
             self.tier = ""
             self.has_special_models = False
+            self.real_32k = False
             self.the_one = False
 
         elif provider == Provider.ANTHROPIC:
