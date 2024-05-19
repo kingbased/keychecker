@@ -13,7 +13,7 @@ aws_regions = [
 ]
 
 
-def check_aws(key: APIKey, list_models):
+def check_aws(key: APIKey):
     line = key.api_key.split(":")
     access_key = line[0]
     secret = line[1]
@@ -44,9 +44,8 @@ def check_aws(key: APIKey, list_models):
 
         if not key.useless and key.bedrock_enabled:
             check_logging(session, key)
-            if list_models:
-                print("Generating model map for key: " + key.api_key + " (may take a while)")
-                retrieve_activated_models(session, key)
+            print("Generating model map for key: " + key.api_key + " (may take a while)")
+            retrieve_activated_models(session, key)
         elif key.useless and policies is not None:
             key.useless_reasons.append('Key policies lack Admin or User Creation perms')
         return True

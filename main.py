@@ -30,8 +30,7 @@ def parse_args():
     parser.add_argument('-proxyoutput', '--proxyoutput', action='store_true', help='proxy format output for easy copying')
     parser.add_argument('-file', '--file', action='store', dest='file', help='read slop from a provided filename')
     parser.add_argument('-verbose', '--verbose', action='store_true', help='watch as your slop is checked real time')
-    parser.add_argument('-awsmodels', '--awsmodels', action='store_true', help='output activated aws models for a key (warning: slow)')
-    parser.add_argument('-awsasync', '--awsasync', action='store_true', help='use the AWS REST API for checking keys instead of boto3 (way faster but not as well tested, -awsmodels autoapplies here due to the speedup)')
+    parser.add_argument('-awslegacy', '--awslegacy', action='store_true', help='use old slow aws checker instead of fast new one for some reason.')
     return parser.parse_args()
 
 
@@ -43,7 +42,7 @@ if args.file:
     if inputted_keys is None:
         sys.exit(1)
 else:
-    print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral) one per line. Press Enter on a blank line to start validation')
+    print('Enter API keys (OpenAI/Anthropic/AI21/MakerSuite/AWS/Azure/Mistral/Elevenlabs) one per line. Press Enter on a blank line to start validation')
     print('Expected format for AWS keys is accesskey:secret, for Azure keys it\'s resourcegroup:apikey. For Vertex AI keys the absolute path to the secrets key file is expected in quotes. "/path/to/secrets.json"')
     while True:
         current_line = input()
@@ -143,7 +142,7 @@ async def validate_elevenlabs(key: APIKey, sem):
 
 def validate_aws(key: APIKey):
     IO.conditional_print(f"Checking AWS key: {key.api_key}", args.verbose)
-    if check_aws(key, args.awsmodels) is None:
+    if check_aws(key) is None:
         IO.conditional_print(f"Invalid AWS key: {key.api_key}", args.verbose)
         return
     IO.conditional_print(f"AWS key '{key.api_key}' is valid", args.verbose)
@@ -232,10 +231,10 @@ async def validate_keys():
             if not match:
                 continue
             key_obj = APIKey(Provider.AWS, key)
-            if args.awsasync:
-                tasks.append(validate_aws_async(key_obj, concurrent_connections))
-            else:
+            if args.awslegacy:
                 futures.append(executor.submit(validate_aws, key_obj))
+            else:
+                tasks.append(validate_aws_async(key_obj, concurrent_connections))
         elif ":" in key and "AKIA" not in key:
             match = azure_regex.match(key)
             if not match:
@@ -353,9 +352,8 @@ def output_keys():
         if valid_elevenlabs_keys:
             pretty_print_elevenlabs_keys(valid_elevenlabs_keys)
     else:
-        # ai21, openrouter and vertex keys aren't supported in proxies so no point outputting them, filtered azure keys should be excluded.
-        print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys))
-        print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys))
+        print("OPENAI_KEY=" + ','.join(key.api_key for key in valid_oai_keys if key.has_quota))
+        print("ANTHROPIC_KEY=" + ','.join(key.api_key for key in valid_anthropic_keys if key.has_quota))
         print("AWS_CREDENTIALS=" + ','.join(f"{key.api_key}:{region}" for key in valid_aws_keys if not key.useless and key.bedrock_enabled for region in [key.region] + key.alt_regions))
         print("GOOGLE_AI_KEY=" + ','.join(key.api_key for key in valid_makersuite_keys))
         print("AZURE_CREDENTIALS=" + ','.join(f"{key.api_key.split(':')[0]}:{key.best_deployment}:{key.api_key.split(':')[1]}" for key in valid_azure_keys if key.unfiltered))
