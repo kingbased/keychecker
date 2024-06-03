@@ -56,6 +56,7 @@ class APIKey:
 
         elif provider == Provider.MAKERSUITE:
             self.models = []
+            self.enabled_billing = False
 
         elif provider == Provider.OPENROUTER:
             self.usage = 0
