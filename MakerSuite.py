@@ -19,9 +19,12 @@ async def check_makersuite(key: APIKey, session):
 
 
 # rpm limit of 2 on nonbilling keys is hit or miss for me, and rpm isn't returned in headers like oai/anthro so have to check it like this unfortunately.
-# google will also start terminating generation requests on high key batches (40+), so the checker will output errors but recover and check fine still
+# google will also start terminating generation requests on high key batches (50+)
 async def test_makersuite_billing(key: APIKey, session):
     data = {
+        "generationConfig": {
+            "max_output_tokens": 1
+        },
         "contents": {
             "role": "user",
             "parts": [
@@ -33,8 +36,14 @@ async def test_makersuite_billing(key: APIKey, session):
     }
 
     async with session.post(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={key.api_key}", json=data) as response:
+        resp_json = await response.json()
         if response.status != 429:
             key.enabled_billing = True
+        else:
+            error_details = resp_json.get('error', {}).get('message', '')
+            # different type of 429 error compared to hitting the rpm limit, keys with this seem to never recover and are just perma 429'd, so we mark them as invalid
+            if "limit 'GenerateContent request limit per minute for a region' of service 'generativelanguage.googleapis.com' for consumer" in error_details:
+                return
         return True
 
 

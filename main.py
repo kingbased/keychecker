@@ -209,6 +209,7 @@ openrouter_regex = re.compile(r'sk-or-v1-[a-z0-9]{64}')
 # vertex_regex = re.compile(r'^(.+):(ya29.[A-Za-z0-9\-_]{469})$') regex for the oauth tokens, useless since they expire hourly
 executor = ThreadPoolExecutor(max_workers=100)
 concurrent_connections = asyncio.Semaphore(1500)
+makersuite_semaphore = asyncio.Semaphore(50)  # when did google become such a pussy
 
 
 async def validate_keys():
@@ -232,7 +233,7 @@ async def validate_keys():
             if not match:
                 continue
             key_obj = APIKey(Provider.MAKERSUITE, key)
-            tasks.append(execute_with_retries(validate_makersuite, key_obj, concurrent_connections, 5))
+            tasks.append(execute_with_retries(validate_makersuite, key_obj, makersuite_semaphore, 5))
         elif "sk-or-v1-" in key:
             match = openrouter_regex.match(key)
             if not match:
