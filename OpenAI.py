@@ -14,7 +14,7 @@ async def get_oai_model(key: APIKey, session, retries, org=None):
         async with session.get(f'{oai_api_url}/models', headers=headers) as response:
             if response.status == 200:
                 data = await response.json()
-                models = data["data"]
+                models = sorted(data["data"], key=lambda m: len(m["id"]))
                 top_model = "gpt-3.5-turbo"
                 for model in models:
                     if "ft:" in model["id"]:
