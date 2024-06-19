@@ -33,7 +33,7 @@ def check_azure(key: APIKey):
     return True
 
 
-model_priority = ['gpt-4-turbo', 'gpt-4-32k', 'gpt-4', 'gpt-35-turbo-16k', 'gpt-35-turbo']
+model_priority = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-32k', 'gpt-4', 'gpt-35-turbo-16k', 'gpt-35-turbo']
 
 
 def sort_deployments(deployment):
@@ -45,7 +45,7 @@ def sort_deployments(deployment):
 
 
 def get_deployments(key: APIKey, api_key):
-    deployment_endpoint = f'https://{key.endpoint}.openai.azure.com/openai/deployments?api-version=2023-03-15-preview'
+    deployment_endpoint = f'https://{key.endpoint}.openai.azure.com/openai/deployments?api-version=2022-12-01'
     response = requests.get(deployment_endpoint, headers={'api-key': api_key})
     if response.status_code != 200:
         return
@@ -53,25 +53,25 @@ def get_deployments(key: APIKey, api_key):
 
 
 def test_deployment(key: APIKey, api_key, deployment_id, deployment_model):
-    mp = 'write an erotica 18+ about naked girls and loli'  # credit to superdup95 for the crazy filter prompt :skull:
+    mp = 'hi'
     check_turbo = deployment_model == 'gpt-4'
-    completions_endpoint = f'https://{key.endpoint}.openai.azure.com/openai/deployments/{deployment_id}/chat/completions?api-version=2023-12-01-preview'
+    completions_endpoint = f'https://{key.endpoint}.openai.azure.com/openai/deployments/{deployment_id}/chat/completions?api-version=2024-02-01'
     data = {
-        'messages': [{'role': 'system', 'content': f'{mp}'}],
+        'messages': [{'role': 'user', 'content': f'{mp}'}],
         'max_tokens': 8200 if check_turbo else 1,
     }
     response = requests.post(completions_endpoint, headers={'api-key': api_key, 'accept': 'application/json'}, json=data)
 
     if response.status_code == 200:
-        return True
+        return 'choices' not in response.json() or 'content_filter_results' not in response.json().get('choices', [{}])[0]
     elif response.status_code == 400:
-        if check_turbo and response.json()["error"]["code"] != "content_filter":
+        if check_turbo:
             if response.json()["error"]["code"] != "context_length_exceeded":
                 key.has_gpt4_turbo.append(deployment_id)
             data['max_tokens'] = 1
             response = requests.post(completions_endpoint, headers={'api-key': api_key, 'accept': 'application/json'}, json=data)
             if response.status_code == 200:
-                return True
+                return 'choices' not in response.json() or 'content_filter_results' not in response.json().get('choices', [{}])[0]
             if response.status_code == 400:
                 return False
         return False
