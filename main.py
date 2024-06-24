@@ -196,8 +196,7 @@ async def execute_with_retries(func, key, sem, retries):
             break
 
 
-oai_regex = re.compile('(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
-oai_secondary_regex = re.compile('(sk-proj-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})')
+oai_regex = re.compile('(sk-(?:(?:proj|[a-z0-9](?:[a-z0-9-]{0,40}[a-z0-9])?)-)?[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
@@ -241,7 +240,7 @@ async def validate_keys():
             key_obj = APIKey(Provider.OPENROUTER, key)
             tasks.append(execute_with_retries(validate_openrouter, key_obj, concurrent_connections, 5))
         elif "sk-" in key:
-            match = oai_secondary_regex.match(key) if "-proj-" in key else oai_regex.match(key)
+            match = oai_regex.match(key)
             if not match:
                 continue
             key_obj = APIKey(Provider.OPENAI, key)
