@@ -3,7 +3,7 @@ import asyncio
 
 oai_api_url = "https://api.openai.com/v1"
 oai_t1_rpm_limits = {"gpt-3.5-turbo": 3500, "gpt-4": 500, "gpt-4-32k-0314": 20}
-oai_tiers = {40000: 'Free', 60000: 'Tier1', 80000: 'Tier2', 160000: 'Tier3', 1000000: 'Tier4', 15000000: 'Tier5'}
+oai_tiers = {40000: 'Free', 200000: 'Tier1', 2000000: 'Tier2', 4000000: 'Tier3', 10000000: 'Tier4', 50000000: 'Tier5'}
 
 
 async def get_oai_model(key: APIKey, session, retries, org=None):
