@@ -196,7 +196,7 @@ async def execute_with_retries(func, key, sem, retries):
             break
 
 
-oai_regex = re.compile('(sk-(?:(?:proj|[a-z0-9](?:[a-z0-9-]{0,40}[a-z0-9])?)-)?[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})')
+oai_regex = re.compile('(sk-[a-zA-Z0-9-_]+T3BlbkFJ[a-zA-Z0-9-_]+)')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
