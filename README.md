@@ -9,7 +9,7 @@ Currently supports and validates keys for the services below, and checks for the
 - Google MakerSuite (List of available models + billing status)
 - AWS - (Admin status, auto-fetch the region, logging status, username, bedrock status + enabled models)
 - Azure - (Auto-fetch all deployments, auto-fetch best deployment/model, filter status, dall-e deployment)
-- Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly. Good luck scraping for those.)
+- Google Cloud Vertex AI - (Requires a key file since oauth tokens expire hourly.)
 - MistralAI - (Subscription status)
 - OpenRouter - (Estimated balance, usage in $, credit limit, RPM, has purchased any credits)
 - ElevenLabs - (Key tier, remaining characters in plan, detect uncapped char quota, pro voice cloning limit, invoice details on pay as you go plans)

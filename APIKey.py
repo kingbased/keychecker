@@ -50,6 +50,7 @@ class APIKey:
 
         elif provider == Provider.VERTEXAI:
             self.project_id = ""
+            self.has_opus = False
 
         elif provider == Provider.MISTRAL:
             self.subbed = False

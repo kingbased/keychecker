@@ -171,13 +171,14 @@ def validate_azure(key: APIKey):
     api_keys.add(key)
 
 
-def validate_vertexai(key: APIKey):
-    IO.conditional_print(f"Checking Vertex AI keyfile: {key.api_key}", args.verbose)
-    if check_vertexai(key) is None:
-        IO.conditional_print(f"Invalid Vertex AI keyfile: {key.api_key}", args.verbose)
-        return
-    IO.conditional_print(f"Vertex AI keyfile '{key.api_key}' is valid", args.verbose)
-    api_keys.add(key)
+async def validate_vertexai(key: APIKey, sem):
+    async with sem, aiohttp.ClientSession() as session:
+        IO.conditional_print(f"Checking VertexAI keyfile: {key.api_key}", args.verbose)
+        if await check_vertexai(key, session) is None:
+            IO.conditional_print(f"Invalid VertexAI keyfile: {key.api_key}", args.verbose)
+            return
+        IO.conditional_print(f"VertexAI keyfile '{key.api_key}' is valid", args.verbose)
+        api_keys.add(key)
 
 
 async def execute_with_retries(func, key, sem, retries):
@@ -222,7 +223,7 @@ async def validate_keys():
             if not os.path.isfile(key):
                 continue
             key_obj = APIKey(Provider.VERTEXAI, key)
-            futures.append(executor.submit(validate_vertexai, key_obj))
+            tasks.append(execute_with_retries(validate_vertexai, key_obj, concurrent_connections, 5))
         elif "sk-ant-" in key[:7]:
             match = anthropic_regex.match(key) if "ant-api03" in key else anthropic_secondary_regex.match(key)
             if not match:
@@ -290,7 +291,7 @@ def get_invalid_keys(valid_oai_keys, valid_anthropic_keys, valid_ai21_keys, vali
     valid_makersuite_keys_set = set([key.api_key for key in valid_makersuite_keys])
     valid_aws_keys_set = set([key.api_key for key in valid_aws_keys])
     valid_azure_keys_set = set([key.api_key for key in valid_azure_keys])
-    valid_vertexai_keys_set = set([key.api_key for key in valid_vertexai_keys])
+    valid_vertexai_keys_set = set([f'"{key.api_key}"' for key in valid_vertexai_keys])
     valid_mistral_keys_set = set([key.api_key for key in valid_mistral_keys])
     valid_openrouter_keys_set = set([key.api_key for key in valid_openrouter_keys])
     valid_elevenlabs_set = set([key.api_key for key in valid_elevenlabs_keys])
