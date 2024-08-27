@@ -20,6 +20,8 @@ import os.path
 import asyncio
 import aiohttp
 import AWSAsync
+import certifi
+import ssl
 
 api_keys = set()
 
@@ -151,7 +153,7 @@ def validate_aws(key: APIKey):
 
 
 async def validate_aws_async(key: APIKey, sem):
-    async with sem, aiohttp.ClientSession() as session:
+    async with sem, aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl.create_default_context(cafile=certifi.where()))) as session:
         IO.conditional_print(f"Checking AWS key asynchronously: {key.api_key}", args.verbose)
         if await AWSAsync.check_aws(key, session) is None:
             IO.conditional_print(f"Invalid AWS key: {key.api_key}", args.verbose)
@@ -196,7 +198,7 @@ async def execute_with_retries(func, key, sem, retries):
             break
 
 
-oai_regex = re.compile('(sk-(?:(?:proj|[a-z0-9](?:[a-z0-9-]{0,40}[a-z0-9])?)-)?[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})')
+oai_regex = re.compile(r'(sk-[a-zA-Z0-9_-]+T3BlbkFJ[a-zA-Z0-9_-]+)')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
