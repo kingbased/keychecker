@@ -29,6 +29,9 @@ async def get_oai_model(key: APIKey, session, retries, org=None):
                         top_model = model["id"]
                 key.model = top_model
                 return True
+            elif response.status == 403:
+                key.model = "gpt-4"
+                return True
             elif response.status != 502:
                 return
         await asyncio.sleep(0.5)
@@ -98,6 +101,9 @@ async def get_oai_org(key: APIKey, session, retries):
                         if org["is_default"]:
                             key.default_org = org["name"]
                         key.organizations.append(org["name"])
+                return True
+            elif response.status == 403:
+                key.default_org = None
                 return True
             elif response.status != 502:
                 return
