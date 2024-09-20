@@ -30,7 +30,7 @@ async def check_anthropic(key: APIKey, session):
             error_message = json_response.get("error", {}).get("message", "")
             if "This organization has been disabled" in error_message:
                 return
-            elif "Your credit balance is too low to access the Claude API" in error_message:
+            elif "Your credit balance is too low to access the Anthropic API" in error_message:
                 key.has_quota = False
                 return True
                 
@@ -40,8 +40,8 @@ async def check_anthropic(key: APIKey, session):
             ratelimit = int(response.headers['anthropic-ratelimit-requests-limit'])
             key.tier = get_tier(tokenlimit, ratelimit)
         except KeyError:
-            key.tier = "Evaluation Tier"
-            key.remaining_tokens = 2500000
+            key.tier = "Scale Tier"
+            key.remaining_tokens = "Unknown"
 
         content_texts = [content.get("text", "") for content in json_response.get("content", []) if content.get("type") == "text"]
         key.pozzed = any(pozzed_message in text for text in content_texts for pozzed_message in pozzed_messages)
