@@ -204,6 +204,7 @@ anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
 elevenlabs_regex = re.compile(r'([a-z0-9]{32})')
+elevenlabs_secondary_regex = re.compile(r'sk_[a-z0-9]{48}')
 makersuite_regex = re.compile(r'AIzaSy[A-Za-z0-9\-_]{33}')
 aws_regex = re.compile(r'^(AKIA[0-9A-Z]{16}):([A-Za-z0-9+/]{40})$')
 azure_regex = re.compile(r'^(.+):([a-z0-9]{32})$')
@@ -264,7 +265,10 @@ async def validate_keys():
             key_obj = APIKey(Provider.AZURE, key)
             futures.append(executor.submit(validate_azure, key_obj))
         else:
-            match = elevenlabs_regex.match(key)
+            if "sk_" in key[:3]:
+                match = elevenlabs_secondary_regex.match(key)
+            else:
+                match = elevenlabs_regex.match(key)
             if not match:
                 match = ai21_and_mistral_regex.match(key)
                 if not match:
