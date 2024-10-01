@@ -2,25 +2,19 @@ import APIKey
 
 
 async def check_ai21(key: APIKey, session):
-    url = "https://api.ai21.com/studio/v1/j2-light/complete"
+    url = "https://api.ai21.com/studio/v1/chat/completions"
 
     payload = {
-        "prompt": "a",
-        "maxTokens": 1,
+        "messages": [],
+        "model": "jamba-1.5-large",
     }
     headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
         "Authorization": f"Bearer {key.api_key}"
     }
 
-    async with session.post(url, json=payload, headers=headers) as response:
-        if response.status not in [200, 402]:
+    async with session.post(url, data=payload, headers=headers) as response:
+        if response.status not in [200, 422]:
             return
-
-        if response.status == 402:  # unsure if this error code also applies to empty keys
-            key.trial_elapsed = True
-
         return True
 
 

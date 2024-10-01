@@ -202,6 +202,7 @@ async def execute_with_retries(func, key, sem, retries):
 oai_regex = re.compile(r'(sk-[a-zA-Z0-9_-]+T3BlbkFJ[a-zA-Z0-9_-]+)')
 anthropic_regex = re.compile(r'sk-ant-api03-[A-Za-z0-9\-_]{93}AA')
 anthropic_secondary_regex = re.compile(r'sk-ant-[A-Za-z0-9\-_]{86}')
+anthropic_third_regex = re.compile(r'sk-[A-Za-z0-9]{86}')
 ai21_and_mistral_regex = re.compile('[A-Za-z0-9]{32}')
 elevenlabs_regex = re.compile(r'([a-z0-9]{32})')
 elevenlabs_secondary_regex = re.compile(r'sk_[a-z0-9]{48}')
@@ -244,11 +245,15 @@ async def validate_keys():
             key_obj = APIKey(Provider.OPENROUTER, key)
             tasks.append(execute_with_retries(validate_openrouter, key_obj, concurrent_connections, 5))
         elif "sk-" in key:
-            match = oai_regex.match(key)
+            anthropic_flag = "T3BlbkFJ" not in key
+            if anthropic_flag:
+                match = anthropic_third_regex.match(key)
+            else:
+                match = oai_regex.match(key)
             if not match:
                 continue
-            key_obj = APIKey(Provider.OPENAI, key)
-            tasks.append(execute_with_retries(validate_openai, key_obj, concurrent_connections, 5))
+            key_obj = APIKey(Provider.ANTHROPIC if anthropic_flag else Provider.OPENAI, key)
+            tasks.append(execute_with_retries(validate_anthropic if anthropic_flag else validate_openai, key_obj, concurrent_connections, 5))
         elif ":" and "AKIA" in key:
             match = aws_regex.match(key)
             if not match:
